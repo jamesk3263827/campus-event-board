@@ -1,0 +1,60 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ------------------< com.eventboard:waitlist-service >-------------------
+[INFO] Building  0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:4.0.3:run (default-cli) > test-compile @ waitlist-service >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ waitlist-service ---
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ waitlist-service ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ waitlist-service ---
+[INFO] skip non existing resourceDirectory /Users/jameskelley/Library/CloudStorage/OneDrive-SUNYOldWestbury/Classes/004-2026-Spring/CS4501 - Software Engineering/Final Project/campus-event-board/waitlist-service/src/test/resources
+[INFO] 
+[INFO] --- compiler:3.14.1:testCompile (default-testCompile) @ waitlist-service ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 1 source file with javac [debug parameters release 21] to target/test-classes
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by lombok.permit.Permit
+WARNING: Please consider reporting this to the maintainers of class lombok.permit.Permit
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[INFO] 
+[INFO] <<< spring-boot:4.0.3:run (default-cli) < test-compile @ waitlist-service <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:4.0.3:run (default-cli) @ waitlist-service ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.3)
+
+2026-03-20T13:39:36.418-04:00  INFO 29689 --- [campus-event-board] [  restartedMain] com.yourapp.WaitlistServiceApplication   : Starting WaitlistServiceApplication using Java 25.0.2 with PID 29689 (/Users/jameskelley/Library/CloudStorage/OneDrive-SUNYOldWestbury/Classes/004-2026-Spring/CS4501 - Software Engineering/Final Project/campus-event-board/waitlist-service/target/classes started by jameskelley in /Users/jameskelley/Library/CloudStorage/OneDrive-SUNYOldWestbury/Classes/004-2026-Spring/CS4501 - Software Engineering/Final Project/campus-event-board/waitlist-service)
+2026-03-20T13:39:36.420-04:00  INFO 29689 --- [campus-event-board] [  restartedMain] com.yourapp.WaitlistServiceApplication   : No active profile set, falling back to 1 default profile: "default"
+2026-03-20T13:39:36.448-04:00  INFO 29689 --- [campus-event-board] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-03-20T13:39:36.448-04:00  INFO 29689 --- [campus-event-board] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-03-20T13:39:36.856-04:00  INFO 29689 --- [campus-event-board] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-03-20T13:39:36.863-04:00  INFO 29689 --- [campus-event-board] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-03-20T13:39:36.863-04:00  INFO 29689 --- [campus-event-board] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.18]
+2026-03-20T13:39:36.880-04:00  INFO 29689 --- [campus-event-board] [  restartedMain] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 432 ms
+2026-03-20T13:39:37.041-04:00  INFO 29689 --- [campus-event-board] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-03-20T13:39:37.044-04:00  INFO 29689 --- [campus-event-board] [  restartedMain] com.yourapp.WaitlistServiceApplication   : Started WaitlistServiceApplication in 0.805 seconds (process running for 1.028)
+2026-03-20T13:39:52.734-04:00  INFO 29689 --- [campus-event-board] [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-03-20T13:39:52.740-04:00  INFO 29689 --- [campus-event-board] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  18.280 s
+[INFO] Finished at: 2026-03-20T13:39:52-04:00
+[INFO] ------------------------------------------------------------------------

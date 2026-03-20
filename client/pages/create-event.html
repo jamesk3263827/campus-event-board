@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Event</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+  <nav class="navbar">
+    <h1>Campus Event Board</h1>
+    <button onclick="logout()" class="btn-secondary">Log out</button>
+  </nav>
+
+  <div class="page-container">
+    <h2>Create a New Event</h2>
+
+    <form id="create-form">
+
+      <div class="form-group">
+        <label for="title">Event Title</label>
+        <input type="text" id="title" placeholder="e.g. Pizza Night" required>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" placeholder="What's this event about?" rows="4" required></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="category">Category</label>
+        <select id="category" required>
+          <option value="">Select a category</option>
+          <option value="social">Social</option>
+          <option value="academic">Academic</option>
+          <option value="sports">Sports</option>
+          <option value="arts">Arts</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="date">Date</label>
+        <input type="date" id="date" required>
+      </div>
+
+      <div class="form-group">
+        <label for="time">Time</label>
+        <input type="time" id="time" required>
+      </div>
+
+      <div class="form-group">
+        <label for="location">Location</label>
+        <input type="text" id="location" placeholder="e.g. Main Quad" required>
+      </div>
+
+      <p class="error" id="error-msg"></p>
+
+      <button type="submit" class="btn-primary">Create Event</button>
+      <a href="events.html" class="btn-secondary">Cancel</a>
+
+    </form>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+  <!-- auth.js has firebaseConfig, requireAuth(), logout() -->
+  <script src="../auth.js"></script>
+
+  <!-- API wrapper -->
+  <script src="../js/api.js"></script>
+
+  <!-- Create event logic -->
+  <script src="../js/create-event.js"></script>
+
+  <script>
+    requireAuth();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Firebase service account key - NEVER commit this
+firebase-admin-key.json
+
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# Mac system files
+.DS_Store
+
+# Firebase service account key - NEVER commit this
+waitlist-service/src/main/resources/serviceAccountKey.json

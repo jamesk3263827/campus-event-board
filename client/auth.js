@@ -54,7 +54,7 @@ if (registerForm) {
       });
 
       // Redirect to events page after registration
-      window.location.href = "events.html";
+      window.location.href = "pages/events.html";
 
     } catch (error) {
       handleFirebaseError(error);
@@ -90,7 +90,7 @@ if (loginForm) {
       const token = await auth.currentUser.getIdToken();
       localStorage.setItem("authToken", token);
 
-      window.location.href = "events.html";
+      window.location.href = "pages/events.html";
 
     } catch (error) {
       handleFirebaseError(error);

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Events</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+  <nav class="navbar">
+    <h1>Campus Event Board</h1>
+    <button onclick="logout()" class="btn-secondary">Log out</button>
+  </nav>
+
+  <div class="page-container">
+
+    <!-- Search & Filter -->
+    <div class="filters">
+      <input type="text" id="search-input" placeholder="Search events..." />
+      <select id="category-filter">
+        <option value="">All categories</option>
+        <option value="social">Social</option>
+        <option value="academic">Academic</option>
+        <option value="sports">Sports</option>
+        <option value="arts">Arts</option>
+        <option value="other">Other</option>
+      </select>
+      <a href="create-event.html" class="btn-primary">+ Create Event</a>
+    </div>
+
+    <!-- Events Grid -->
+    <div id="events-grid">
+      <p>Loading events...</p>
+    </div>
+
+  </div>
+
+  <!-- Firebase SDKs — same versions as login.html -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <!-- Your existing auth.js (has firebaseConfig + logout()) -->
+  <script src="../auth.js"></script>
+
+  <!-- API wrapper -->
+  <script src="../js/api.js"></script>
+
+  <script>
+    // Redirect to login if not authenticated
+    requireAuth();
+
+    async function loadEvents() {
+      const search   = document.getElementById('search-input').value.trim();
+      const category = document.getElementById('category-filter').value;
+
+      try {
+        const params = {};
+        if (search)   params.search   = search;
+        if (category) params.category = category;
+
+        const events = await api.getEvents(params);
+        renderEvents(events);
+      } catch (err) {
+        document.getElementById('events-grid').innerHTML =
+          `<p class="error">Failed to load events: ${err.message}</p>`;
+      }
+    }
+
+    function renderEvents(events) {
+      const grid = document.getElementById('events-grid');
+      if (!events.length) {
+        grid.innerHTML = '<p>No events found.</p>';
+        return;
+      }
+
+      grid.innerHTML = events.map(e => `
+        <div class="event-card">
+          <span class="badge">${e.category}</span>
+          <h3>${e.title}</h3>
+          <p>${e.date} · ${e.time}</p>
+          <p>${e.location}</p>
+          <p>${e.description}</p>
+        </div>
+      `).join('');
+    }
+
+    // Wire up filters
+    document.getElementById('search-input').addEventListener('input', loadEvents);
+    document.getElementById('category-filter').addEventListener('change', loadEvents);
+
+    // Load on page open
+    loadEvents();
+  </script>
+
+</body>
+</html>
