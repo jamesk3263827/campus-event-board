@@ -34,5 +34,13 @@ const api = {
   getEvent:    (id)       => apiFetch(`/events/${id}`),
   createEvent: (data)     => apiFetch('/events', { method: 'POST', body: JSON.stringify(data) }),
   updateEvent: (id, data) => apiFetch(`/events/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteEvent: (id)       => apiFetch(`/events/${id}`, { method: 'DELETE' })
+  deleteEvent: (id)       => apiFetch(`/events/${id}`, { method: 'DELETE' }),
+
+  // RSVP — Java decides "going" vs "waitlisted" based on capacity
+  rsvpEvent: (eventId) =>
+    apiFetch(`/events/${eventId}/rsvp`, { method: 'POST' }),
+
+  // Cancel — Java promotes next waitlisted user automatically
+  cancelRsvp: (eventId) =>
+    apiFetch(`/events/${eventId}/rsvp`, { method: 'DELETE' })
 };

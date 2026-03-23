@@ -1,0 +1,80 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ------------------< com.eventboard:waitlist-service >-------------------
+[INFO] Building  0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.5.0:clean (default-clean) @ waitlist-service ---
+[INFO] Deleting /Users/jameskelley/Library/CloudStorage/OneDrive-SUNYOldWestbury/Classes/004-2026-Spring/CS4501 - Software Engineering/Final Project/campus-event-board/waitlist-service/target
+[INFO] 
+[INFO] >>> spring-boot:4.0.3:run (default-cli) > test-compile @ waitlist-service >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ waitlist-service ---
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ waitlist-service ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 6 source files with javac [debug parameters release 21] to target/classes
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by lombok.permit.Permit
+WARNING: Please consider reporting this to the maintainers of class lombok.permit.Permit
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ waitlist-service ---
+[INFO] skip non existing resourceDirectory /Users/jameskelley/Library/CloudStorage/OneDrive-SUNYOldWestbury/Classes/004-2026-Spring/CS4501 - Software Engineering/Final Project/campus-event-board/waitlist-service/src/test/resources
+[INFO] 
+[INFO] --- compiler:3.14.1:testCompile (default-testCompile) @ waitlist-service ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 1 source file with javac [debug parameters release 21] to target/test-classes
+[INFO] 
+[INFO] <<< spring-boot:4.0.3:run (default-cli) < test-compile @ waitlist-service <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:4.0.3:run (default-cli) @ waitlist-service ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.3)
+
+2026-03-20T16:10:14.512-04:00  INFO 70681 --- [campus-event-board] [  restartedMain] com.yourapp.WaitlistServiceApplication   : Starting WaitlistServiceApplication using Java 25.0.2 with PID 70681 (/Users/jameskelley/Library/CloudStorage/OneDrive-SUNYOldWestbury/Classes/004-2026-Spring/CS4501 - Software Engineering/Final Project/campus-event-board/waitlist-service/target/classes started by jameskelley in /Users/jameskelley/Library/CloudStorage/OneDrive-SUNYOldWestbury/Classes/004-2026-Spring/CS4501 - Software Engineering/Final Project/campus-event-board/waitlist-service)
+2026-03-20T16:10:14.514-04:00  INFO 70681 --- [campus-event-board] [  restartedMain] com.yourapp.WaitlistServiceApplication   : No active profile set, falling back to 1 default profile: "default"
+2026-03-20T16:10:14.537-04:00  INFO 70681 --- [campus-event-board] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-03-20T16:10:14.538-04:00  INFO 70681 --- [campus-event-board] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+FIREBASE_INIT: FirebaseConfig class loaded
+2026-03-20T16:10:14.934-04:00  INFO 70681 --- [campus-event-board] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-03-20T16:10:14.941-04:00  INFO 70681 --- [campus-event-board] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-03-20T16:10:14.942-04:00  INFO 70681 --- [campus-event-board] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.18]
+2026-03-20T16:10:14.957-04:00  INFO 70681 --- [campus-event-board] [  restartedMain] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 419 ms
+FIREBASE_INIT: initialize() called
+FIREBASE_INIT: loading serviceAccountKey.json...
+FIREBASE_INIT: Firebase initialized successfully!
+2026-03-20T16:10:15.159-04:00  INFO 70681 --- [campus-event-board] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-03-20T16:10:15.162-04:00  INFO 70681 --- [campus-event-board] [  restartedMain] com.yourapp.WaitlistServiceApplication   : Started WaitlistServiceApplication in 0.823 seconds (process running for 1.031)
+2026-03-20T16:10:40.052-04:00  INFO 70681 --- [campus-event-board] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-03-20T16:10:40.052-04:00  INFO 70681 --- [campus-event-board] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-03-20T16:10:40.052-04:00  INFO 70681 --- [campus-event-board] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by io.grpc.netty.shaded.io.netty.util.internal.PlatformDependent0$4 (file:/Users/jameskelley/.m2/repository/io/grpc/grpc-netty-shaded/1.55.1/grpc-netty-shaded-1.55.1.jar)
+WARNING: Please consider reporting this to the maintainers of class io.grpc.netty.shaded.io.netty.util.internal.PlatformDependent0$4
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by io.grpc.netty.shaded.io.netty.util.internal.NativeLibraryUtil in an unnamed module (file:/Users/jameskelley/.m2/repository/io/grpc/grpc-netty-shaded/1.55.1/grpc-netty-shaded-1.55.1.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+2026-03-20T16:11:06.303-04:00  INFO 70681 --- [campus-event-board] [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-03-20T16:11:06.305-04:00  INFO 70681 --- [campus-event-board] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  54.371 s
+[INFO] Finished at: 2026-03-20T16:11:06-04:00
+[INFO] ------------------------------------------------------------------------

@@ -125,7 +125,7 @@ async function apiRequest(url, options = {}) {
 // Redirect to login if not logged in
 function requireAuth() {
   auth.onAuthStateChanged((user) => {
-    if (!user) window.location.href = "login.html";
+    if (!user) window.location.href = "../login.html";
   });
 }
 
@@ -133,7 +133,7 @@ function requireAuth() {
 async function logout() {
   await auth.signOut();
   localStorage.removeItem("authToken");
-  window.location.href = "login.html";
+  window.location.href = "../login.html";
 }
 
 function showError(id, message) {

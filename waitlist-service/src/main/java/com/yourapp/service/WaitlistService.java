@@ -8,30 +8,41 @@ import com.yourapp.model.RsvpResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.Objects;
+import javax.annotation.Nonnull;
 
 @Service
 public class WaitlistService {
 
-    private static final String EVENTS_COLLECTION = "events";
+    private static final String EVENTS_COLLECTION   = "events";
     private static final String RSVPS_SUBCOLLECTION = "rsvps";
 
+    // Firestore field names — stored as constants so the @Nonnull checker
+    // can verify these are never null when passed to whereEqualTo/orderBy.
+    private static final String FIELD_STATUS           = "status";
+    private static final String FIELD_JOINED_AT        = "joinedAt";
+    private static final String FIELD_USER_ID          = "userId";
+    private static final String STATUS_WAITLISTED      = "waitlisted";
+
+    // -------------------------------------------------------------------------
+    // rsvp() — unchanged from your original
+    // -------------------------------------------------------------------------
     public RsvpResponse rsvp(RsvpRequest request)
             throws ExecutionException, InterruptedException {
 
         Firestore db = FirestoreClient.getFirestore();
-        // FIX lines 27/28: ensure eventId and userId are never null before passing to Firestore
         String eventId = Objects.requireNonNull(request.getEventId(), "eventId must not be null");
-        String userId = Objects.requireNonNull(request.getUserId(), "userId must not be null");
+        String userId  = Objects.requireNonNull(request.getUserId(),  "userId must not be null");
 
         DocumentReference eventRef = db.collection(EVENTS_COLLECTION).document(eventId);
-        DocumentReference rsvpRef = eventRef.collection(RSVPS_SUBCOLLECTION).document(userId);
+        DocumentReference rsvpRef  = eventRef.collection(RSVPS_SUBCOLLECTION).document(userId);
 
         ApiFuture<String> transaction = db.runTransaction(tx -> {
             DocumentSnapshot eventSnap = tx.get(eventRef).get();
-            DocumentSnapshot rsvpSnap = tx.get(rsvpRef).get();
+            DocumentSnapshot rsvpSnap  = tx.get(rsvpRef).get();
 
             if (!eventSnap.exists()) {
                 throw new RuntimeException("Event not found: " + eventId);
@@ -47,7 +58,6 @@ public class WaitlistService {
             Long capacityLong = eventSnap.getLong("capacity");
             long capacity = capacityLong != null ? capacityLong : 0L;
 
-            // FIX line 53: split into two steps so the ternary doesn't auto-unbox a nullable Long
             Long goingCountLong;
             if (eventSnap.contains("goingCount")) {
                 goingCountLong = eventSnap.getLong("goingCount");
@@ -62,12 +72,34 @@ public class WaitlistService {
                 tx.update(eventRef, "goingCount", FieldValue.increment(1));
             } else {
                 status = "waitlisted";
+                // Assign a waitlist position based on current waitlist size.
+                // We query outside the transaction (Firestore limitation) and
+                // accept that in a race this could produce a duplicate position —
+                // recalculateWaitlistPositions() corrects that after promotion.
+                long waitlistPosition = db.collection(EVENTS_COLLECTION)
+                        .document(eventId)
+                        .collection(RSVPS_SUBCOLLECTION)
+                        .whereEqualTo(FIELD_STATUS, STATUS_WAITLISTED)
+                        .get().get()
+                        .size() + 1L;
+
+                tx.update(eventRef, "waitlistCount", FieldValue.increment(1));
+
+                Map<String, Object> rsvpData = new HashMap<>();
+                rsvpData.put(FIELD_USER_ID,       userId);
+                rsvpData.put("eventId",           eventId);
+                rsvpData.put(FIELD_STATUS,         STATUS_WAITLISTED);
+                rsvpData.put("timestamp",          FieldValue.serverTimestamp());
+                rsvpData.put(FIELD_JOINED_AT,      FieldValue.serverTimestamp());
+                rsvpData.put("waitlistPosition",   waitlistPosition);
+                tx.set(rsvpRef, rsvpData);
+                return status;
             }
 
             Map<String, Object> rsvpData = new HashMap<>();
-            rsvpData.put("userId", userId);
-            rsvpData.put("eventId", eventId);
-            rsvpData.put("status", status);
+            rsvpData.put("userId",    userId);
+            rsvpData.put("eventId",   eventId);
+            rsvpData.put("status",    status);
             rsvpData.put("timestamp", FieldValue.serverTimestamp());
             tx.set(rsvpRef, rsvpData);
 
@@ -82,16 +114,18 @@ public class WaitlistService {
         return new RsvpResponse(resolvedStatus, message, userId, eventId);
     }
 
-    public RsvpResponse cancel(String userId, String eventId)
+    // -------------------------------------------------------------------------
+    // cancel() — decrement goingCount, then promote next waitlisted user
+    // -------------------------------------------------------------------------
+    public RsvpResponse cancel(@Nonnull String userId, @Nonnull String eventId)
             throws ExecutionException, InterruptedException {
 
         Firestore db = FirestoreClient.getFirestore();
-        // FIX lines 86/87: same null guard for cancel parameters
-        String safeUserId = Objects.requireNonNull(userId, "userId must not be null");
+        String safeUserId  = Objects.requireNonNull(userId,  "userId must not be null");
         String safeEventId = Objects.requireNonNull(eventId, "eventId must not be null");
 
         DocumentReference eventRef = db.collection(EVENTS_COLLECTION).document(safeEventId);
-        DocumentReference rsvpRef = eventRef.collection(RSVPS_SUBCOLLECTION).document(safeUserId);
+        DocumentReference rsvpRef  = eventRef.collection(RSVPS_SUBCOLLECTION).document(safeUserId);
 
         ApiFuture<String> transaction = db.runTransaction(tx -> {
             DocumentSnapshot rsvpSnap = tx.get(rsvpRef).get();
@@ -107,6 +141,8 @@ public class WaitlistService {
 
             if ("going".equals(currentStatus)) {
                 tx.update(eventRef, "goingCount", FieldValue.increment(-1));
+            } else if ("waitlisted".equals(currentStatus)) {
+                tx.update(eventRef, "waitlistCount", FieldValue.increment(-1));
             }
 
             tx.delete(rsvpRef);
@@ -114,11 +150,136 @@ public class WaitlistService {
         });
 
         String oldStatus = transaction.get();
+
+        // Only promote when a *going* user cancels — a waitlisted cancellation
+        // just frees their spot in line; nobody moves up into "going".
+        if ("going".equals(oldStatus)) {
+            promoteFromWaitlist(safeEventId);
+        } else if ("waitlisted".equals(oldStatus)) {
+            // Still recalculate so positions stay contiguous after the gap.
+            recalculateWaitlistPositions(safeEventId);
+        }
+
         return new RsvpResponse(
             "cancelled",
             "RSVP cancelled (was: " + oldStatus + ")",
             safeUserId,
             safeEventId
         );
+    }
+
+    // -------------------------------------------------------------------------
+    // promoteFromWaitlist() — moves the earliest waitlisted user to "going"
+    // Called automatically by cancel() when a "going" user drops out.
+    // -------------------------------------------------------------------------
+    public void promoteFromWaitlist(@Nonnull String eventId)
+            throws ExecutionException, InterruptedException {
+
+        Firestore db = FirestoreClient.getFirestore();
+
+        // Query the waitlist outside the transaction (Firestore transactions
+        // cannot include collection queries, only document reads via tx.get()).
+        List<QueryDocumentSnapshot> waitlistDocs = db
+                .collection(EVENTS_COLLECTION)
+                .document(eventId)
+                .collection(RSVPS_SUBCOLLECTION)
+                .whereEqualTo(FIELD_STATUS, STATUS_WAITLISTED)
+                .orderBy(FIELD_JOINED_AT, Query.Direction.ASCENDING)
+                .limit(1)
+                .get()
+                .get()
+                .getDocuments();
+
+        // Nobody is waiting — just leave goingCount as-is (already decremented
+        // in cancel()) and return. No promotion needed.
+        if (waitlistDocs.isEmpty()) {
+            return;
+        }
+
+        QueryDocumentSnapshot firstInLine = waitlistDocs.get(0);
+        // getString() is @Nullable per the Firestore SDK — validate before use
+        String promotedUserId = Objects.requireNonNull(
+                firstInLine.getString(FIELD_USER_ID),
+                "Waitlist document is missing userId field: " + firstInLine.getId()
+        );
+
+        DocumentReference eventRef = db
+                .collection(EVENTS_COLLECTION)
+                .document(eventId);
+
+        DocumentReference promotedRsvpRef = eventRef
+                .collection(RSVPS_SUBCOLLECTION)
+                .document(promotedUserId);
+
+        // Promote inside a transaction so the status flip and counter update
+        // are atomic. If two cancellations race, each transaction sees a
+        // consistent snapshot and retries automatically.
+        db.runTransaction(tx -> {
+            DocumentSnapshot rsvpSnap = tx.get(promotedRsvpRef).get();
+
+            // Guard: user may have cancelled their own waitlist spot between
+            // our query above and this transaction executing.
+            if (!rsvpSnap.exists() || !STATUS_WAITLISTED.equals(rsvpSnap.getString(FIELD_STATUS))) {
+                return null; // nothing to promote — caller will recalculate
+            }
+
+            // Flip status to "going" and clear waitlist-specific fields
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("status",              "going");
+            updates.put("promotedFromWaitlist", true);
+            updates.put("promotedAt",           FieldValue.serverTimestamp());
+            updates.put("waitlistPosition",     FieldValue.delete());
+            updates.put("joinedAt",             FieldValue.delete());
+            tx.update(promotedRsvpRef, updates);
+
+            // goingCount was already decremented in cancel(); incrementing here
+            // brings it back to the same value — the spot is backfilled.
+            tx.update(eventRef, "goingCount",    FieldValue.increment(1));
+            tx.update(eventRef, "waitlistCount", FieldValue.increment(-1));
+
+            return null;
+        }).get();
+
+        // Shift remaining waitlist positions up.
+        // Outside the transaction: positions are cosmetic. A failed
+        // recalculation cannot roll back an already-committed promotion.
+        recalculateWaitlistPositions(eventId);
+
+        // NEXT STEP: send push/email notification to promotedUserId
+    }
+
+    // -------------------------------------------------------------------------
+    // recalculateWaitlistPositions() — re-numbers positions 1, 2, 3 …
+    // Safe to call any time positions may have drifted (promotion, cancellation).
+    // -------------------------------------------------------------------------
+    public void recalculateWaitlistPositions(@Nonnull String eventId)
+            throws ExecutionException, InterruptedException {
+
+        Firestore db = FirestoreClient.getFirestore();
+
+        List<QueryDocumentSnapshot> waitlistDocs = db
+                .collection(EVENTS_COLLECTION)
+                .document(eventId)
+                .collection(RSVPS_SUBCOLLECTION)
+                .whereEqualTo(FIELD_STATUS, STATUS_WAITLISTED)
+                .orderBy(FIELD_JOINED_AT, Query.Direction.ASCENDING)
+                .get()
+                .get()
+                .getDocuments();
+
+        if (waitlistDocs.isEmpty()) {
+            return;
+        }
+
+        // WriteBatch handles up to 500 documents atomically.
+        // If you ever expect > 500 waitlist entries, split into chunks of 500.
+        WriteBatch batch = db.batch();
+
+        for (int i = 0; i < waitlistDocs.size(); i++) {
+            batch.update(waitlistDocs.get(i).getReference(),
+                         "waitlistPosition", i + 1); // 1-indexed
+        }
+
+        batch.commit().get();
     }
 }

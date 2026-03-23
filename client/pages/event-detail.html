@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Detail – Campus Event Board</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+  <nav class="navbar">
+    <a href="events.html" class="nav-back">← Back to Events</a>
+    <button class="btn-secondary" onclick="logout()">Log out</button>
+  </nav>
+
+  <!-- Event detail card -->
+  <div class="detail-container">
+
+    <!-- Loading state -->
+    <div id="loading-state">
+      <p>Loading event...</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="error-state" style="display:none;">
+      <p id="error-message">Something went wrong.</p>
+      <a href="events.html">← Back to Events</a>
+    </div>
+
+    <!-- Event content — hidden until loaded -->
+    <div id="event-content" style="display:none;">
+
+      <div class="event-header">
+        <span id="event-category" class="event-tag"></span>
+        <h1 id="event-title"></h1>
+      </div>
+
+      <div class="event-meta">
+        <p>📅 <span id="event-date"></span></p>
+        <p>📍 <span id="event-location"></span></p>
+        <p>👤 Hosted by <span id="event-host"></span></p>
+      </div>
+
+      <p id="event-description" class="event-description"></p>
+
+      <!-- Capacity bar -->
+      <div class="capacity-section">
+        <div class="capacity-labels">
+          <span>Attendees</span>
+          <span><span id="going-count">0</span> / <span id="capacity">0</span> going</span>
+        </div>
+        <div class="capacity-bar">
+          <div id="capacity-fill" class="capacity-fill"></div>
+        </div>
+        <p id="waitlist-count-label" style="display:none;" class="waitlist-label">
+          <span id="waitlist-count">0</span> people on the waitlist
+        </p>
+      </div>
+
+      <!-- RSVP button — state managed entirely by event-detail.js -->
+      <div class="rsvp-section">
+        <button id="rsvp-btn" class="btn-rsvp" disabled>Loading...</button>
+        <p id="rsvp-message" class="rsvp-message"></p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Cancel confirmation modal -->
+  <div id="cancel-modal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+      <h2>Cancel your RSVP?</h2>
+      <p id="cancel-modal-body">Are you sure you want to cancel?</p>
+      <div class="modal-actions">
+        <button id="confirm-cancel-btn" class="btn-danger">Yes, cancel</button>
+        <button id="dismiss-cancel-btn" class="btn-secondary">Never mind</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase CDN (same versions as your other pages) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+  <!-- Your existing shared scripts -->
+  <script src="../auth.js"></script>
+  <script src="../js/api.js"></script>
+
+  <!-- Page script -->
+  <script src="../js/event-detail.js"></script>
+
+</body>
+</html>

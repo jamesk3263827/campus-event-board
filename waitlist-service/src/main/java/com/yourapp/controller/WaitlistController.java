@@ -7,9 +7,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nonnull;
 
 @RestController
 @RequestMapping("/waitlist")
+@CrossOrigin(origins = "http://localhost:3000")
 public class WaitlistController {
 
     private final WaitlistService waitlistService;
@@ -31,6 +33,7 @@ public class WaitlistController {
                 new RsvpResponse("error", e.getMessage(), request.getUserId(), request.getEventId())
             );
         } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();  // ← prints the real error to the Spring Boot terminal
             return ResponseEntity.internalServerError().body(
                 new RsvpResponse("error", "Internal error", request.getUserId(), request.getEventId())
             );
@@ -40,8 +43,8 @@ public class WaitlistController {
     // DELETE /waitlist/cancel?userId=abc123&eventId=evt456
     @DeleteMapping("/cancel")
     public ResponseEntity<RsvpResponse> cancel(
-            @RequestParam String userId,
-            @RequestParam String eventId) {
+            @RequestParam @Nonnull String userId,
+            @RequestParam @Nonnull String eventId) {
         try {
             RsvpResponse response = waitlistService.cancel(userId, eventId);
             return ResponseEntity.ok(response);
@@ -50,6 +53,7 @@ public class WaitlistController {
                 new RsvpResponse("error", e.getMessage(), userId, eventId)
             );
         } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
             return ResponseEntity.internalServerError().body(
                 new RsvpResponse("error", "Internal error", userId, eventId)
             );
