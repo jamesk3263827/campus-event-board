@@ -42,5 +42,12 @@ const api = {
 
   // Cancel — Java promotes next waitlisted user automatically
   cancelRsvp: (eventId) =>
-    apiFetch(`/events/${eventId}/rsvp`, { method: 'DELETE' })
+    apiFetch(`/events/${eventId}/rsvp`, { method: 'DELETE' }),
+  
+  getComments:   (eventId)            => apiFetch(`/events/${eventId}/comments`),
+  addComment:    (eventId, text)      => apiFetch(`/events/${eventId}/comments`, { method: 'POST', body: JSON.stringify({ text }) }),
+  deleteComment: (eventId, commentId) => apiFetch(`/events/${eventId}/comments/${commentId}`, { method: 'DELETE' }),
+  
+  getProfile: () => apiFetch('/events/user/profile'),
 };
+

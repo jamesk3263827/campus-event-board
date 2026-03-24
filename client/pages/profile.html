@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile – Campus Event Board</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+  <nav class="navbar">
+    <a href="events.html" class="nav-back">← Back to Events</a>
+    <button class="btn-secondary" onclick="logout()">Log out</button>
+  </nav>
+
+  <div class="page-container">
+    <h2>My Profile</h2>
+    <p id="profile-email" class="profile-email"></p>
+
+    <div id="profile-loading"><p>Loading...</p></div>
+    <div id="profile-error" class="error" style="display:none;"></div>
+
+    <div id="profile-content" style="display:none;">
+
+      <section class="profile-section">
+        <h3>Events I Created</h3>
+        <div id="created-list" class="profile-event-list"></div>
+      </section>
+
+      <section class="profile-section">
+        <h3>Events I'm Going To</h3>
+        <div id="going-list" class="profile-event-list"></div>
+      </section>
+
+      <section class="profile-section">
+        <h3>Events I'm Waitlisted For</h3>
+        <div id="waitlisted-list" class="profile-event-list"></div>
+      </section>
+
+    </div>
+  </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="../auth.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/profile.js"></script>
+<script>requireAuth();</script>
+</body>
+</html>

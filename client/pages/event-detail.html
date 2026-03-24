@@ -30,6 +30,8 @@
     <!-- Event content — hidden until loaded -->
     <div id="event-content" style="display:none;">
 
+      <img id="event-banner" class="event-banner-img" src="" alt="" style="display:none;">
+
       <div class="event-header">
         <span id="event-category" class="event-tag"></span>
         <h1 id="event-title"></h1>
@@ -52,9 +54,15 @@
         <div class="capacity-bar">
           <div id="capacity-fill" class="capacity-fill"></div>
         </div>
+        <p id="spots-remaining" class="spots-remaining"></p>
         <p id="waitlist-count-label" style="display:none;" class="waitlist-label">
           <span id="waitlist-count">0</span> people on the waitlist
         </p>
+      </div>
+
+      <!-- Waitlist position badge — shown only when user is waitlisted -->
+      <div id="waitlist-badge" class="waitlist-badge" style="display:none;">
+        You are <strong>#<span id="waitlist-position">?</span></strong> on the waitlist
       </div>
 
       <!-- RSVP button — state managed entirely by event-detail.js -->
@@ -63,6 +71,23 @@
         <p id="rsvp-message" class="rsvp-message"></p>
       </div>
 
+      <!-- Comments Section -->
+      <div class="comments-section">
+        <h2>Comments</h2>
+
+        <!-- Submit form — hidden until user auth state is known -->
+        <div id="comment-form-wrapper">
+          <form id="comment-form" class="comment-form">
+            <textarea id="comment-input" placeholder="Leave a comment..." rows="3" required></textarea>
+            <button type="submit" class="btn-primary btn-comment-submit">Post Comment</button>
+            <p id="comment-error" class="error"></p>
+          </form>
+        </div>
+
+        <div id="comments-list" class="comments-list">
+          <p id="comments-loading">Loading comments...</p>
+        </div>
+      </div>  
     </div>
   </div>
 
@@ -79,9 +104,9 @@
   </div>
 
   <!-- Firebase CDN (same versions as your other pages) -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
   <!-- Your existing shared scripts -->
   <script src="../auth.js"></script>

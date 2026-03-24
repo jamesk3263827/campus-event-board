@@ -87,3 +87,103 @@ input:focus {
   margin-top: 4px;
   display: block;
 }
+
+/* ── Navbar ── */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: white;
+  border-bottom: 1px solid #eee;
+}
+.nav-back { color: #6c63ff; text-decoration: none; font-weight: 500; }
+
+/* ── Page container ── */
+.page-container {
+  max-width: 680px;
+  margin: 32px auto;
+  padding: 0 16px;
+}
+
+/* ── Detail container ── */
+.detail-container {
+  max-width: 680px;
+  margin: 32px auto;
+  padding: 0 16px;
+}
+
+/* ── Capacity ── */
+.capacity-section { margin: 24px 0; }
+.capacity-labels { display: flex; justify-content: space-between; font-size: 14px; color: #666; margin-bottom: 6px; }
+.capacity-bar { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+.capacity-fill { height: 100%; background: #6c63ff; border-radius: 4px; transition: width 0.4s; }
+.capacity-fill.almost-full { background: #f6ad55; }
+.capacity-fill.full { background: #e53e3e; }
+.spots-remaining { font-size: 13px; color: #48bb78; margin-top: 6px; }
+.spots-remaining.spots-low { color: #f6ad55; }
+.spots-remaining.spots-full { color: #e53e3e; }
+.waitlist-label { font-size: 13px; color: #718096; margin-top: 4px; }
+
+/* ── Waitlist badge ── */
+.waitlist-badge {
+  display: inline-block;
+  background: #fefcbf;
+  border: 1px solid #f6e05e;
+  color: #744210;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+/* ── RSVP ── */
+.rsvp-section { margin: 24px 0; }
+.btn-rsvp { padding: 12px 24px; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; }
+.btn-rsvp--join { background: #6c63ff; color: white; }
+.btn-rsvp--going { background: #48bb78; color: white; }
+.btn-rsvp--waitlisted { background: #f6ad55; color: white; }
+.btn-rsvp--full { background: #718096; color: white; }
+.btn-rsvp--secondary { background: #eee; color: #333; }
+.rsvp-message { font-size: 13px; color: #666; margin-top: 8px; }
+
+/* ── Modal ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal { background: white; border-radius: 12px; padding: 28px; max-width: 380px; width: 90%; }
+.modal h2 { margin-bottom: 12px; }
+.modal-actions { display: flex; gap: 12px; margin-top: 20px; }
+.btn-danger { padding: 10px 20px; background: #e53e3e; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; }
+.btn-secondary { padding: 10px 20px; background: #eee; color: #333; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; }
+
+/* ── Comments ── */
+.comments-section { margin-top: 40px; border-top: 1px solid #eee; padding-top: 24px; }
+.comments-section h2 { font-size: 18px; margin-bottom: 16px; }
+.comment-form textarea { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; resize: vertical; margin-bottom: 8px; }
+.btn-comment-submit { width: auto; padding: 10px 20px; margin-top: 0; }
+.comments-list { margin-top: 24px; display: flex; flex-direction: column; gap: 16px; }
+.comment { background: #f9f9f9; border-radius: 8px; padding: 14px; }
+.comment-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13px; color: #666; }
+.comment-author { font-weight: 600; color: #333; }
+.comment-time { flex: 1; }
+.btn-delete-comment { background: none; border: none; color: #e53e3e; cursor: pointer; font-size: 12px; padding: 0; }
+.comment-text { font-size: 14px; line-height: 1.5; }
+.no-comments { color: #999; font-size: 14px; }
+
+/* ── Profile page ── */
+.profile-email { color: #666; font-size: 14px; margin-bottom: 28px; }
+.profile-section { margin-bottom: 36px; }
+.profile-section h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+.profile-event-list { display: flex; flex-direction: column; gap: 10px; }
+.profile-event-card { display: flex; align-items: center; gap: 14px; background: white; border-radius: 10px; padding: 14px; text-decoration: none; color: inherit; box-shadow: 0 1px 4px rgba(0,0,0,0.07); transition: box-shadow 0.2s; }
+.profile-event-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
+.profile-event-banner { width: 64px; height: 48px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+.profile-event-info { display: flex; flex-direction: column; gap: 4px; }
+.profile-event-info strong { font-size: 15px; }
+.profile-event-info span { font-size: 13px; color: #666; }
+.no-events { font-size: 14px; color: #999; }
+
+/* ── Banner image upload ── */
+.upload-progress { font-size: 13px; color: #666; margin-top: 4px; }
+
+/* ── Event header banner ── */
+.event-banner-img { width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px; margin-bottom: 20px; }

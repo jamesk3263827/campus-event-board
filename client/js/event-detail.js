@@ -87,7 +87,7 @@ function startListeners() {
 
   // 2. Listen to this user's RSVP document — updates button state live
   //    Only attach if the user is logged in
-  if (currentUser) {
+if (currentUser) {
     userRsvpUnsubscribe = db
       .collection('events').doc(eventId)
       .collection('rsvps').doc(currentUser.uid)
@@ -98,6 +98,8 @@ function startListeners() {
         console.error('RSVP listener error:', err);
       });
   }
+
+  loadComments();
 }
 
 // Detach listeners when navigating away — prevents memory leaks
@@ -118,6 +120,17 @@ function renderEventContent(event) {
   eventLocation.textContent = event.location     || 'TBD';
   eventHost.textContent     = event.createdBy    || 'Unknown';
   eventDesc.textContent     = event.description  || '';
+
+  // Banner image
+  const bannerEl = document.getElementById('event-banner');
+  if (bannerEl) {
+    if (event.bannerUrl) {
+      bannerEl.src = event.bannerUrl;
+      bannerEl.style.display = 'block';
+    } else {
+      bannerEl.style.display = 'none';
+    }
+  }
 
   // Format date
   if (event.date) {
@@ -140,11 +153,22 @@ function renderEventContent(event) {
   capacityFill.style.width = `${pct}%`;
   capacityFill.className   = 'capacity-fill' + (pct >= 100 ? ' full' : pct >= 80 ? ' almost-full' : '');
 
-  if (waitlist > 0) {
-    waitlistLabel.style.display  = 'block';
-    waitlistCountEl.textContent  = waitlist;
+  // Spots remaining
+  const spotsEl = document.getElementById('spots-remaining');
+  if (capacity > 0) {
+    const spots = Math.max(capacity - going, 0);
+    spotsEl.textContent = spots > 0 ? `${spots} spot${spots !== 1 ? 's' : ''} remaining` : 'Event is full';
+    spotsEl.className = 'spots-remaining' + (spots === 0 ? ' spots-full' : spots <= 5 ? ' spots-low' : '');
   } else {
-    waitlistLabel.style.display  = 'none';
+    spotsEl.textContent = '';
+  }
+
+  // Waitlist count
+  if (waitlist > 0) {
+    waitlistLabel.style.display = 'block';
+    waitlistCountEl.textContent = waitlist;
+  } else {
+    waitlistLabel.style.display = 'none';
   }
 }
 
@@ -175,6 +199,9 @@ function renderButton() {
   rsvpBtn.className = 'btn-rsvp';
   rsvpBtn.disabled  = false;
   rsvpMessage.textContent = '';
+
+  const badge = document.getElementById('waitlist-badge');
+  if (badge) badge.style.display = 'none';
 
   switch (state) {
 
@@ -278,3 +305,85 @@ function showError(msg) {
   errorState.style.display    = 'block';
   errorMessage.textContent    = msg;
 }
+
+// ─── Comments ────────────────────────────────────────────────────────────────
+
+async function loadComments() {
+  const listEl = document.getElementById('comments-list');
+  try {
+    const comments = await api.getComments(eventId);
+    renderComments(comments);
+  } catch (err) {
+    listEl.innerHTML = `<p class="error">Could not load comments.</p>`;
+  }
+}
+
+function renderComments(comments) {
+  const listEl = document.getElementById('comments-list');
+  if (comments.length === 0) {
+    listEl.innerHTML = '<p class="no-comments">No comments yet. Be the first!</p>';
+    return;
+  }
+
+  listEl.innerHTML = comments.map(c => {
+    const isOwn = currentUser && c.authorId === currentUser.uid;
+    const ts = c.createdAt?.toDate
+      ? c.createdAt.toDate().toLocaleString()
+      : 'Just now';
+    return `
+      <div class="comment" data-id="${c.id}">
+        <div class="comment-header">
+          <span class="comment-author">${isOwn ? 'You' : 'Attendee'}</span>
+          <span class="comment-time">${ts}</span>
+          ${isOwn ? `<button class="btn-delete-comment" onclick="handleDeleteComment('${c.id}')">Delete</button>` : ''}
+        </div>
+        <p class="comment-text">${escapeHtml(c.text)}</p>
+      </div>`;
+  }).join('');
+}
+
+async function handleDeleteComment(commentId) {
+  if (!confirm('Delete this comment?')) return;
+  try {
+    await api.deleteComment(eventId, commentId);
+    await loadComments(); // refresh list
+  } catch (err) {
+    alert(err.message || 'Could not delete comment.');
+  }
+}
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Wire up comment form after auth is known
+firebase.auth().onAuthStateChanged((user) => {
+  const wrapper = document.getElementById('comment-form-wrapper');
+  if (!user) {
+    wrapper.innerHTML = '<p class="auth-link"><a href="../login.html">Log in</a> to leave a comment.</p>';
+    return;
+  }
+
+  document.getElementById('comment-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitBtn = e.target.querySelector('button[type=submit]');
+    const input = document.getElementById('comment-input');
+    const errorEl = document.getElementById('comment-error');
+    submitBtn.disabled = true;
+    errorEl.textContent = '';
+
+    try {
+      await api.addComment(eventId, input.value.trim());
+      input.value = '';
+      await loadComments();
+    } catch (err) {
+      errorEl.textContent = err.message || 'Could not post comment.';
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+});

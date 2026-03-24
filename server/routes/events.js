@@ -15,6 +15,17 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/events/user/profile  (auth required)
+// Returns events created by, going to, and waitlisted for the current user
+router.get('/user/profile', verifyToken, async (req, res) => {
+  try {
+    const profile = await db.getUserProfile(req.user.uid);
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/events/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -84,4 +95,45 @@ router.delete('/:eventId/rsvp', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/events/:eventId/comments
+router.get('/:eventId/comments', async (req, res) => {
+  try {
+    const comments = await db.getComments(req.params.eventId);
+    res.json(comments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/events/:eventId/comments  (auth required)
+router.post('/:eventId/comments', verifyToken, async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: 'Comment text is required' });
+    }
+    const comment = await db.addComment(req.params.eventId, req.user.uid, text.trim());
+    res.status(201).json(comment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/events/:eventId/comments/:commentId  (auth required, must be author)
+router.delete('/:eventId/comments/:commentId', verifyToken, async (req, res) => {
+  try {
+    const deleted = await db.deleteComment(
+      req.params.eventId,
+      req.params.commentId,
+      req.user.uid
+    );
+    if (!deleted) return res.status(404).json({ error: 'Comment not found' });
+    res.status(204).send();
+  } catch (err) {
+    if (err.message === 'FORBIDDEN') return res.status(403).json({ error: 'Not your comment' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
+
