@@ -173,31 +173,32 @@ public class WaitlistService {
     // Called automatically by cancel() when a "going" user drops out.
     // -------------------------------------------------------------------------
     public void promoteFromWaitlist(@Nonnull String eventId)
-            throws ExecutionException, InterruptedException {
+        throws ExecutionException, InterruptedException {
 
-        Firestore db = FirestoreClient.getFirestore();
+    Firestore db = FirestoreClient.getFirestore();
 
-        // Query the waitlist outside the transaction (Firestore transactions
-        // cannot include collection queries, only document reads via tx.get()).
-        List<QueryDocumentSnapshot> waitlistDocs = db
-                .collection(EVENTS_COLLECTION)
-                .document(eventId)
-                .collection(RSVPS_SUBCOLLECTION)
-                .whereEqualTo(FIELD_STATUS, STATUS_WAITLISTED)
-                .orderBy(FIELD_JOINED_AT, Query.Direction.ASCENDING)
-                .limit(1)
-                .get()
-                .get()
-                .getDocuments();
+    System.err.println("PROMOTE: starting for eventId=" + eventId);
 
-        // Nobody is waiting — just leave goingCount as-is (already decremented
-        // in cancel()) and return. No promotion needed.
-        if (waitlistDocs.isEmpty()) {
-            return;
-        }
+    List<QueryDocumentSnapshot> waitlistDocs = db
+            .collection(EVENTS_COLLECTION)
+            .document(eventId)
+            .collection(RSVPS_SUBCOLLECTION)
+            .whereEqualTo(FIELD_STATUS, STATUS_WAITLISTED)
+            .orderBy(FIELD_JOINED_AT, Query.Direction.ASCENDING)
+            .limit(1)
+            .get()
+            .get()
+            .getDocuments();
 
-        QueryDocumentSnapshot firstInLine = waitlistDocs.get(0);
-        // getString() is @Nullable per the Firestore SDK — validate before use
+    System.err.println("PROMOTE: waitlistDocs size=" + waitlistDocs.size());
+
+    if (waitlistDocs.isEmpty()) {
+        System.err.println("PROMOTE: nobody on waitlist, returning");
+        return;
+    }
+
+    QueryDocumentSnapshot firstInLine = waitlistDocs.get(0);
+    System.err.println("PROMOTE: promoting userId=" + firstInLine.getString(FIELD_USER_ID));        // getString() is @Nullable per the Firestore SDK — validate before use
         String promotedUserId = Objects.requireNonNull(
                 firstInLine.getString(FIELD_USER_ID),
                 "Waitlist document is missing userId field: " + firstInLine.getId()

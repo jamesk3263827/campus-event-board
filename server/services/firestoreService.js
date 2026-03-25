@@ -39,11 +39,16 @@ async function getEventById(id) {
 
 // POST new event
 async function createEvent(data, userId) {
+  // Look up the creator's display name
+  const userDoc = await getDb().collection('users').doc(userId).get();
+  const creatorName = userDoc.exists ? userDoc.data().name : 'Unknown';
+
   const payload = {
     ...data,
-    createdBy: userId,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    createdBy:   userId,        // keep UID for permission checks
+    creatorName: creatorName,   // add name for display
+    createdAt:   admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt:   admin.firestore.FieldValue.serverTimestamp(),
   };
   const ref = await getDb().collection(COLLECTION).add(payload);
   return { id: ref.id, ...payload };

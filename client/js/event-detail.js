@@ -1,19 +1,17 @@
-// js/event-detail.js
+// client/js/event-detail.js
 // Requires: auth.js and js/api.js loaded before this file
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
+// ─── RSVP state constants ─────────────────────────────────────────────────────
 const RSVP_STATES = {
-  LOADING:     'LOADING',
-  LOGIN:       'LOGIN',
-  GOING:       'GOING',
-  WAITLISTED:  'WAITLISTED',
-  JOIN:        'JOIN',
-  FULL:        'FULL'
+  LOADING:    'LOADING',
+  LOGIN:      'LOGIN',
+  GOING:      'GOING',
+  WAITLISTED: 'WAITLISTED',
+  JOIN:       'JOIN',
+  FULL:       'FULL',
 };
 
-// ─── DOM refs ────────────────────────────────────────────────────────────────
-
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
 const loadingState    = document.getElementById('loading-state');
 const errorState      = document.getElementById('error-state');
 const errorMessage    = document.getElementById('error-message');
@@ -40,38 +38,37 @@ const cancelModalBody = document.getElementById('cancel-modal-body');
 const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
 const dismissCancelBtn = document.getElementById('dismiss-cancel-btn');
 
+const deleteModal       = document.getElementById('delete-modal');
+const confirmDeleteBtn  = document.getElementById('confirm-delete-btn');
+const dismissDeleteBtn  = document.getElementById('dismiss-delete-btn');
+const deleteEventBtn    = document.getElementById('delete-event-btn');
+const adminActions      = document.getElementById('event-admin-actions');
+
 // ─── State ───────────────────────────────────────────────────────────────────
+let eventId             = null;
+let currentUser         = null;
+let userRsvpDoc         = null;
+let eventDoc            = null;
+let eventUnsubscribe    = null;
+let userRsvpUnsubscribe = null;
 
-let eventId      = null;
-let currentUser  = null;
-let userRsvpDoc  = null;   // live data from onSnapshot for this user's RSVP
-let eventDoc     = null;   // live data from onSnapshot for the event
-
-let eventUnsubscribe    = null;   // cleanup handle for event listener
-let userRsvpUnsubscribe = null;   // cleanup handle for user RSVP listener
-
-// ─── Initialise ──────────────────────────────────────────────────────────────
-
-// Pull eventId from URL: pages/event-detail.html?id=abc123
+// ─── Init ─────────────────────────────────────────────────────────────────────
 const params = new URLSearchParams(window.location.search);
 eventId = params.get('id');
 
 if (!eventId) {
   showError('No event ID provided.');
 } else {
-  // Wait for Firebase Auth to resolve before doing anything
   firebase.auth().onAuthStateChanged((user) => {
     currentUser = user;
     startListeners();
   });
 }
 
-// ─── Firestore onSnapshot listeners ─────────────────────────────────────────
-
+// ─── Firestore listeners ──────────────────────────────────────────────────────
 function startListeners() {
   const db = firebase.firestore();
 
-  // 1. Listen to the event document — updates goingCount, capacity, waitlistCount live
   eventUnsubscribe = db.collection('events').doc(eventId)
     .onSnapshot((snap) => {
       if (!snap.exists) {
@@ -81,13 +78,13 @@ function startListeners() {
       eventDoc = { id: snap.id, ...snap.data() };
       renderEventContent(eventDoc);
       renderButton();
+      renderAdminActions(eventDoc);
     }, (err) => {
-      showError('Failed to load event: ' + err.message);
+      showError('Failed to load event. Please refresh and try again.');
+      console.error('Event listener error:', err);
     });
 
-  // 2. Listen to this user's RSVP document — updates button state live
-  //    Only attach if the user is logged in
-if (currentUser) {
+  if (currentUser) {
     userRsvpUnsubscribe = db
       .collection('events').doc(eventId)
       .collection('rsvps').doc(currentUser.uid)
@@ -102,24 +99,21 @@ if (currentUser) {
   loadComments();
 }
 
-// Detach listeners when navigating away — prevents memory leaks
 window.addEventListener('beforeunload', () => {
-  if (eventUnsubscribe)   eventUnsubscribe();
+  if (eventUnsubscribe)    eventUnsubscribe();
   if (userRsvpUnsubscribe) userRsvpUnsubscribe();
 });
 
-// ─── Render event content ────────────────────────────────────────────────────
-
+// ─── Render event content ─────────────────────────────────────────────────────
 function renderEventContent(event) {
-  // Show content, hide loading
   loadingState.style.display = 'none';
   eventContent.style.display = 'block';
 
-  eventTitle.textContent    = event.title        || 'Untitled Event';
-  eventCategory.textContent = event.category     || '';
-  eventLocation.textContent = event.location     || 'TBD';
-  eventHost.textContent     = event.createdBy    || 'Unknown';
-  eventDesc.textContent     = event.description  || '';
+  eventTitle.textContent    = event.title       || 'Untitled Event';
+  eventCategory.textContent = event.category    || '';
+  eventLocation.textContent = event.location    || 'TBD';
+  eventHost.textContent     = event.creatorName || 'Unknown';
+  eventDesc.textContent     = event.description || '';
 
   // Banner image
   const bannerEl = document.getElementById('event-banner');
@@ -132,13 +126,16 @@ function renderEventContent(event) {
     }
   }
 
-  // Format date
+  // Format date + time
   if (event.date) {
-    const d = event.date.toDate ? event.date.toDate() : new Date(event.date);
-    eventDate.textContent = d.toLocaleDateString('en-US', {
+    const d = event.date?.toDate ? event.date.toDate() : new Date(event.date);
+    let dateStr = d.toLocaleDateString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      hour: '2-digit', minute: '2-digit'
     });
+    if (event.time) dateStr += ` at ${formatTime(event.time)}`;
+    eventDate.textContent = dateStr;
+  } else {
+    eventDate.textContent = 'Date TBD';
   }
 
   // Capacity bar
@@ -151,62 +148,94 @@ function renderEventContent(event) {
 
   const pct = capacity > 0 ? Math.min((going / capacity) * 100, 100) : 0;
   capacityFill.style.width = `${pct}%`;
-  capacityFill.className   = 'capacity-fill' + (pct >= 100 ? ' full' : pct >= 80 ? ' almost-full' : '');
+  capacityFill.setAttribute('aria-valuenow', Math.round(pct));
+  capacityFill.className = 'capacity-fill' +
+    (pct >= 100 ? ' full' : pct >= 80 ? ' almost-full' : '');
 
   // Spots remaining
   const spotsEl = document.getElementById('spots-remaining');
   if (capacity > 0) {
     const spots = Math.max(capacity - going, 0);
-    spotsEl.textContent = spots > 0 ? `${spots} spot${spots !== 1 ? 's' : ''} remaining` : 'Event is full';
-    spotsEl.className = 'spots-remaining' + (spots === 0 ? ' spots-full' : spots <= 5 ? ' spots-low' : '');
+    spotsEl.textContent = spots > 0
+      ? `${spots} spot${spots !== 1 ? 's' : ''} remaining`
+      : 'Event is full';
+    spotsEl.className = 'spots-remaining' +
+      (spots === 0 ? ' spots-full' : spots <= 5 ? ' spots-low' : '');
   } else {
     spotsEl.textContent = '';
   }
 
-  // Waitlist count
+  // Waitlist
   if (waitlist > 0) {
-    waitlistLabel.style.display = 'block';
-    waitlistCountEl.textContent = waitlist;
+    waitlistLabel.style.display  = 'block';
+    waitlistCountEl.textContent  = waitlist;
   } else {
-    waitlistLabel.style.display = 'none';
+    waitlistLabel.style.display  = 'none';
   }
 }
 
-// ─── Derive button state ─────────────────────────────────────────────────────
+// ─── Admin actions (delete) — shown only to event creator ─────────────────────
+function renderAdminActions(event) {
+  if (!currentUser || !adminActions) return;
+  if (event.createdBy === currentUser.uid) {
+    adminActions.style.display = 'flex';
+  }
+}
 
+// Delete event flow
+if (deleteEventBtn) {
+  deleteEventBtn.onclick = () => { deleteModal.style.display = 'flex'; };
+}
+if (dismissDeleteBtn) {
+  dismissDeleteBtn.onclick = () => { deleteModal.style.display = 'none'; };
+}
+if (deleteModal) {
+  deleteModal.addEventListener('click', (e) => {
+    if (e.target === deleteModal) deleteModal.style.display = 'none';
+  });
+}
+if (confirmDeleteBtn) {
+  confirmDeleteBtn.onclick = async () => {
+    confirmDeleteBtn.disabled    = true;
+    confirmDeleteBtn.textContent = 'Deleting…';
+    deleteModal.style.display    = 'none';
+    try {
+      await api.deleteEvent(eventId);
+      window.location.href = 'events.html';
+    } catch (err) {
+      showError(err.message || 'Could not delete event. Please try again.');
+      confirmDeleteBtn.disabled    = false;
+      confirmDeleteBtn.textContent = 'Delete';
+    }
+  };
+}
+
+// ─── RSVP state machine ───────────────────────────────────────────────────────
 function getRsvpState() {
   if (!eventDoc)    return RSVP_STATES.LOADING;
   if (!currentUser) return RSVP_STATES.LOGIN;
 
   const status = userRsvpDoc?.status;
-
   if (status === 'going')      return RSVP_STATES.GOING;
   if (status === 'waitlisted') return RSVP_STATES.WAITLISTED;
 
   const going    = eventDoc.goingCount || 0;
   const capacity = eventDoc.capacity   || 0;
-
-  if (going < capacity) return RSVP_STATES.JOIN;
-  return RSVP_STATES.FULL;
+  return going < capacity ? RSVP_STATES.JOIN : RSVP_STATES.FULL;
 }
-
-// ─── Render button based on state ────────────────────────────────────────────
 
 function renderButton() {
   const state = getRsvpState();
-
-  // Reset classes
-  rsvpBtn.className = 'btn-rsvp';
-  rsvpBtn.disabled  = false;
+  rsvpBtn.className       = 'btn-rsvp';
+  rsvpBtn.disabled        = false;
   rsvpMessage.textContent = '';
 
   const badge = document.getElementById('waitlist-badge');
   if (badge) badge.style.display = 'none';
 
   switch (state) {
-
     case RSVP_STATES.LOADING:
-      rsvpBtn.textContent = 'Loading...';
+      rsvpBtn.textContent = 'Loading…';
       rsvpBtn.disabled    = true;
       break;
 
@@ -222,13 +251,20 @@ function renderButton() {
       rsvpBtn.onclick = () => openCancelModal('going');
       break;
 
-    case RSVP_STATES.WAITLISTED:
+    case RSVP_STATES.WAITLISTED: {
       const position = userRsvpDoc?.waitlistPosition || '?';
       rsvpBtn.textContent = `Waitlisted — #${position} in line`;
       rsvpBtn.classList.add('btn-rsvp--waitlisted');
       rsvpBtn.onclick = () => openCancelModal('waitlisted');
       rsvpMessage.textContent = "We'll notify you if a spot opens up.";
+
+      if (badge) {
+        badge.style.display = 'inline-flex';
+        const posEl = document.getElementById('waitlist-position');
+        if (posEl) posEl.textContent = position;
+      }
       break;
+    }
 
     case RSVP_STATES.JOIN:
       rsvpBtn.textContent = 'RSVP to this event';
@@ -239,66 +275,67 @@ function renderButton() {
     case RSVP_STATES.FULL:
       rsvpBtn.textContent = 'Join Waitlist';
       rsvpBtn.classList.add('btn-rsvp--full');
-      rsvpBtn.onclick = handleRsvp;  // same call — Java decides going vs waitlisted
+      rsvpBtn.onclick = handleRsvp;
       break;
   }
 }
 
-// ─── RSVP action ─────────────────────────────────────────────────────────────
-
+// ─── RSVP action ──────────────────────────────────────────────────────────────
 async function handleRsvp() {
-  rsvpBtn.disabled    = true;
-  rsvpBtn.textContent = 'Saving...';
+  rsvpBtn.disabled        = true;
+  rsvpBtn.textContent     = 'Saving…';
   rsvpMessage.textContent = '';
 
   try {
     const result = await api.rsvpEvent(eventId);
-    // onSnapshot will fire and re-render the button automatically —
-    // no need to manually update state here
-    rsvpMessage.textContent = result.message || 'Done!';
+    rsvpMessage.textContent = result?.message || 'Done!';
   } catch (err) {
-    rsvpMessage.textContent = err.message || 'Something went wrong. Try again.';
+    const message = err.message || 'Something went wrong. Try again.';
     rsvpBtn.disabled = false;
-    renderButton(); // restore button to previous state
+    renderButton();
+    rsvpMessage.textContent = message;
   }
 }
 
-// ─── Cancel modal ────────────────────────────────────────────────────────────
-
+// ─── Cancel modal ─────────────────────────────────────────────────────────────
 function openCancelModal(currentStatus) {
   cancelModalBody.textContent = currentStatus === 'waitlisted'
     ? 'Remove yourself from the waitlist?'
-    : 'Cancel your RSVP? Your spot will be given to the next person in line.';
-
+    : 'Cancel your RSVP? Your spot will be given to the next person on the waitlist.';
   cancelModal.style.display = 'flex';
 }
 
-dismissCancelBtn.onclick = () => {
-  cancelModal.style.display = 'none';
-};
+dismissCancelBtn.onclick = () => { cancelModal.style.display = 'none'; };
 
-// Close modal if user clicks the overlay background
 cancelModal.addEventListener('click', (e) => {
   if (e.target === cancelModal) cancelModal.style.display = 'none';
 });
 
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    cancelModal.style.display = 'none';
+    if (deleteModal) deleteModal.style.display = 'none';
+  }
+});
+
 confirmCancelBtn.onclick = async () => {
-  cancelModal.style.display = 'none';
-  rsvpBtn.disabled    = true;
-  rsvpBtn.textContent = 'Cancelling...';
+  cancelModal.style.display   = 'none';
+  rsvpBtn.disabled            = true;
+  rsvpBtn.textContent         = 'Cancelling…';
 
   try {
     await api.cancelRsvp(eventId);
     // onSnapshot fires and re-renders automatically
   } catch (err) {
-    rsvpMessage.textContent = err.message || 'Cancel failed. Try again.';
+    const message = err.message || 'Cancel failed. Try again.';
     rsvpBtn.disabled = false;
     renderButton();
+    rsvpMessage.textContent = message;
   }
 };
 
-// ─── Error display ───────────────────────────────────────────────────────────
-
+// ─── Error display ────────────────────────────────────────────────────────────
 function showError(msg) {
   loadingState.style.display  = 'none';
   eventContent.style.display  = 'none';
@@ -306,36 +343,43 @@ function showError(msg) {
   errorMessage.textContent    = msg;
 }
 
-// ─── Comments ────────────────────────────────────────────────────────────────
-
+// ─── Comments ─────────────────────────────────────────────────────────────────
 async function loadComments() {
   const listEl = document.getElementById('comments-list');
   try {
     const comments = await api.getComments(eventId);
     renderComments(comments);
   } catch (err) {
-    listEl.innerHTML = `<p class="error">Could not load comments.</p>`;
+    listEl.innerHTML = `
+      <div class="error-banner" style="margin-top:0;">
+        Could not load comments: ${escapeHtml(err.message)}
+      </div>`;
   }
 }
 
 function renderComments(comments) {
   const listEl = document.getElementById('comments-list');
-  if (comments.length === 0) {
-    listEl.innerHTML = '<p class="no-comments">No comments yet. Be the first!</p>';
+
+  if (!comments || comments.length === 0) {
+    listEl.innerHTML = '<p class="no-comments">No comments yet — be the first!</p>';
     return;
   }
 
   listEl.innerHTML = comments.map(c => {
     const isOwn = currentUser && c.authorId === currentUser.uid;
-    const ts = c.createdAt?.toDate
-      ? c.createdAt.toDate().toLocaleString()
-      : 'Just now';
+    let ts = 'Just now';
+    if (c.createdAt) {
+      const d = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt);
+      if (!isNaN(d)) ts = d.toLocaleString();
+    }
     return `
       <div class="comment" data-id="${c.id}">
         <div class="comment-header">
           <span class="comment-author">${isOwn ? 'You' : 'Attendee'}</span>
           <span class="comment-time">${ts}</span>
-          ${isOwn ? `<button class="btn-delete-comment" onclick="handleDeleteComment('${c.id}')">Delete</button>` : ''}
+          ${isOwn
+            ? `<button class="btn-delete-comment" onclick="handleDeleteComment('${c.id}')" aria-label="Delete comment">Delete</button>`
+            : ''}
         </div>
         <p class="comment-text">${escapeHtml(c.text)}</p>
       </div>`;
@@ -346,44 +390,64 @@ async function handleDeleteComment(commentId) {
   if (!confirm('Delete this comment?')) return;
   try {
     await api.deleteComment(eventId, commentId);
-    await loadComments(); // refresh list
+    await loadComments();
   } catch (err) {
     alert(err.message || 'Could not delete comment.');
   }
 }
 
 function escapeHtml(str) {
-  return str
+  return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
 
-// Wire up comment form after auth is known
+// Format "14:30" → "2:30 PM"
+function formatTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour   = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+// ─── Comment form — wire up after auth is known ───────────────────────────────
 firebase.auth().onAuthStateChanged((user) => {
   const wrapper = document.getElementById('comment-form-wrapper');
   if (!user) {
-    wrapper.innerHTML = '<p class="auth-link"><a href="../login.html">Log in</a> to leave a comment.</p>';
+    wrapper.innerHTML = '<p class="auth-link" style="margin-bottom:0;"><a href="../login.html">Log in</a> to leave a comment.</p>';
     return;
   }
 
-  document.getElementById('comment-form').addEventListener('submit', async (e) => {
+  const form    = document.getElementById('comment-form');
+  const input   = document.getElementById('comment-input');
+  const errorEl = document.getElementById('comment-error');
+
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const submitBtn = e.target.querySelector('button[type=submit]');
-    const input = document.getElementById('comment-input');
-    const errorEl = document.getElementById('comment-error');
-    submitBtn.disabled = true;
     errorEl.textContent = '';
 
+    const text = input.value.trim();
+    if (!text) {
+      errorEl.textContent = 'Comment cannot be empty.';
+      return;
+    }
+
+    const submitBtn = form.querySelector('button[type=submit]');
+    submitBtn.disabled    = true;
+    submitBtn.textContent = 'Posting…';
+
     try {
-      await api.addComment(eventId, input.value.trim());
+      await api.addComment(eventId, text);
       input.value = '';
       await loadComments();
     } catch (err) {
-      errorEl.textContent = err.message || 'Could not post comment.';
+      errorEl.textContent = err.message || 'Could not post comment. Please try again.';
     } finally {
-      submitBtn.disabled = false;
+      submitBtn.disabled    = false;
+      submitBtn.textContent = 'Post Comment';
     }
   });
 });

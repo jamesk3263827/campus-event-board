@@ -151,7 +151,9 @@ function handleFirebaseError(error) {
     "auth/invalid-email": "Please enter a valid email address",
     "auth/wrong-password": "Incorrect password",
     "auth/user-not-found": "No account found with this email",
-    "auth/too-many-requests": "Too many attempts. Please try again later"
+    "auth/too-many-requests": "Too many attempts. Please try again later",
+    "auth/invalid-credential":   "Incorrect email or password",
+    "auth/invalid-login-credentials": "Incorrect email or password",
   };
   const message = messages[error.code] || "Something went wrong. Please try again.";
   showError("general-error", message);

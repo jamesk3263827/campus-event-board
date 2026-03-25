@@ -3,88 +3,90 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Event</title>
+  <title>Create Event – Campus Event Board</title>
   <link rel="stylesheet" href="../styles.css">
 </head>
 <body>
 
+  <div class="offline-banner" role="alert">
+    📵 You're offline — some features may not work
+  </div>
+
   <nav class="navbar">
-    <h1>Campus Event Board</h1>
-    <button onclick="logout()" class="btn-secondary">Log out</button>
+    <a href="events.html" class="nav-back">← Events</a>
+    <div class="navbar-actions">
+      <button onclick="logout()" class="btn-secondary">Log out</button>
+    </div>
   </nav>
 
   <div class="page-container">
-    <h2>Create a New Event</h2>
+    <h2 style="margin-bottom: 24px;">Create a New Event</h2>
 
-    <form id="create-form">
+    <form id="create-form" novalidate>
 
-      <div class="form-group">
-        <label for="title">Event Title</label>
-        <input type="text" id="title" placeholder="e.g. Pizza Night" required>
+      <div class="create-event-grid">
+
+        <div class="form-group full-width">
+          <label for="title">Event Title <span aria-hidden="true">*</span></label>
+          <input type="text" id="title" placeholder="e.g. Pizza Night with the CS Club" required maxlength="120">
+        </div>
+
+        <div class="form-group full-width">
+          <label for="description">Description <span aria-hidden="true">*</span></label>
+          <textarea id="description" placeholder="What's this event about? Include any details attendees need to know." rows="4" required maxlength="2000"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="category">Category <span aria-hidden="true">*</span></label>
+          <select id="category" required>
+            <option value="">Select a category</option>
+            <option value="social">Social</option>
+            <option value="academic">Academic</option>
+            <option value="sports">Sports</option>
+            <option value="arts">Arts</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="capacity">Capacity <span aria-hidden="true">*</span></label>
+          <input type="number" id="capacity" placeholder="e.g. 50" min="1" max="10000" required>
+        </div>
+
+        <div class="form-group">
+          <label for="date">Date <span aria-hidden="true">*</span></label>
+          <input type="date" id="date" required>
+        </div>
+
+        <div class="form-group">
+          <label for="time">Time <span aria-hidden="true">*</span></label>
+          <input type="time" id="time" required>
+        </div>
+
+        <div class="form-group full-width">
+          <label for="location">Location <span aria-hidden="true">*</span></label>
+          <input type="text" id="location" placeholder="e.g. Main Quad, Room 201" required maxlength="200">
+        </div>
+
+      </div><!-- /.create-event-grid -->
+
+      <div id="error-msg" class="error-banner" style="display:none;" role="alert"></div>
+
+      <div style="display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap;">
+        <button type="submit" class="btn-primary btn-inline" id="submit-btn">Create Event</button>
+        <a href="events.html" class="btn-secondary">Cancel</a>
       </div>
-
-      <div class="form-group">
-        <label for="description">Description</label>
-        <textarea id="description" placeholder="What's this event about?" rows="4" required></textarea>
-      </div>
-
-      <div class="form-group">
-        <label for="category">Category</label>
-        <select id="category" required>
-          <option value="">Select a category</option>
-          <option value="social">Social</option>
-          <option value="academic">Academic</option>
-          <option value="sports">Sports</option>
-          <option value="arts">Arts</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="date">Date</label>
-        <input type="date" id="date" required>
-      </div>
-
-      <div class="form-group">
-        <label for="time">Time</label>
-        <input type="time" id="time" required>
-      </div>
-
-      <div class="form-group">
-        <label for="location">Location</label>
-        <input type="text" id="location" placeholder="e.g. Main Quad" required>
-      </div>
-
-      <div class="form-group">
-        <label for="capacity">Capacity (max attendees)</label>
-        <input type="number" id="capacity" placeholder="e.g. 50" min="1" required>
-      </div>
-
-      <p class="error" id="error-msg"></p>
-
-      <button type="submit" class="btn-primary">Create Event</button>
-      <a href="events.html" class="btn-secondary">Cancel</a>
 
     </form>
   </div>
 
-  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
-  <!-- auth.js has firebaseConfig, requireAuth(), logout() -->
   <script src="../auth.js"></script>
-
-  <!-- API wrapper -->
   <script src="../js/api.js"></script>
-
-  <!-- Create event logic -->
   <script src="../js/create-event.js"></script>
-
-  <script>
-    requireAuth();
-  </script>
+  <script>requireAuth();</script>
 
 </body>
 </html>

@@ -8,18 +8,31 @@
 </head>
 <body>
 
+  <!-- Offline banner — shown by CSS when body.is-offline -->
+  <div class="offline-banner" role="alert">
+    📵 You're offline — some features may not work
+  </div>
+
   <nav class="navbar">
     <h1>Campus Event Board</h1>
-    <a href="profile.html" class="btn-secondary">My Profile</a>
-    <button onclick="logout()" class="btn-secondary">Log out</button>  
+    <div class="navbar-actions">
+      <a href="profile.html" class="btn-secondary">Profile</a>
+      <button onclick="logout()" class="btn-secondary">Log out</button>
+    </div>
   </nav>
 
   <div class="page-container">
 
     <!-- Search & Filter -->
     <div class="filters">
-      <input type="text" id="search-input" placeholder="Search events..." />
-      <select id="category-filter">
+      <input
+        type="text"
+        id="search-input"
+        placeholder="Search events…"
+        aria-label="Search events"
+        autocomplete="off"
+      />
+      <select id="category-filter" aria-label="Filter by category">
         <option value="">All categories</option>
         <option value="social">Social</option>
         <option value="academic">Academic</option>
@@ -27,34 +40,69 @@
         <option value="arts">Arts</option>
         <option value="other">Other</option>
       </select>
-      <a href="create-event.html" class="btn-primary">+ Create Event</a>
+      <a href="create-event.html" class="btn-primary btn-inline">+ Create Event</a>
     </div>
 
-    <!-- Events Grid -->
-    <div id="events-grid">
-      <p>Loading events...</p>
+    <!-- Error banner (hidden by default) -->
+    <div id="events-error" class="error-banner" style="display:none;" role="alert"></div>
+
+    <!-- Events Grid (loading skeleton shown first) -->
+    <div id="events-grid" aria-live="polite" aria-label="Events list">
+      <!-- Skeleton cards shown while loading -->
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-line w-40"></div>
+        <div class="skeleton skeleton-line w-80"></div>
+        <div class="skeleton skeleton-line w-60"></div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-line w-40"></div>
+        <div class="skeleton skeleton-line w-80"></div>
+        <div class="skeleton skeleton-line w-60"></div>
+      </div>
     </div>
 
   </div>
 
-  <!-- Firebase SDKs — same versions as login.html -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
-  <!-- Your existing auth.js (has firebaseConfig + logout()) -->
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <script src="../auth.js"></script>
-
-  <!-- API wrapper -->
   <script src="../js/api.js"></script>
 
   <script>
-    // Redirect to login if not authenticated
     requireAuth();
 
+    // ── Debounce search input ─────────────────────────────────────────────────
+    let searchTimer = null;
+    function debounce(fn, delay) {
+      return (...args) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => fn(...args), delay);
+      };
+    }
+
+    // ── Load events from Node API ─────────────────────────────────────────────
     async function loadEvents() {
       const search   = document.getElementById('search-input').value.trim();
       const category = document.getElementById('category-filter').value;
+      const errorEl  = document.getElementById('events-error');
+
+      errorEl.style.display = 'none';
+      errorEl.textContent   = '';
+
+      // Show skeleton while fetching
+      document.getElementById('events-grid').innerHTML = `
+        <div class="skeleton-card">
+          <div class="skeleton skeleton-line w-40"></div>
+          <div class="skeleton skeleton-line w-80"></div>
+          <div class="skeleton skeleton-line w-60"></div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skeleton skeleton-line w-40"></div>
+          <div class="skeleton skeleton-line w-80"></div>
+          <div class="skeleton skeleton-line w-60"></div>
+        </div>`;
 
       try {
         const params = {};
@@ -62,37 +110,82 @@
         if (category) params.category = category;
 
         const events = await api.getEvents(params);
-        renderEvents(events);
+        renderEvents(events, search, category);
       } catch (err) {
-        document.getElementById('events-grid').innerHTML =
-          `<p class="error">Failed to load events: ${err.message}</p>`;
+        document.getElementById('events-grid').innerHTML = '';
+        errorEl.textContent   = err.message;
+        errorEl.style.display = 'flex';
       }
     }
 
-    function renderEvents(events) {
+    // ── Render events or empty state ──────────────────────────────────────────
+    function renderEvents(events, search, category) {
       const grid = document.getElementById('events-grid');
-      if (!events.length) {
-        grid.innerHTML = '<p>No events found.</p>';
+
+      if (!events || events.length === 0) {
+        const hasFilter = search || category;
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <span class="empty-state__icon">${hasFilter ? '🔍' : '📅'}</span>
+            <p class="empty-state__title">${hasFilter ? 'No matching events' : 'No events yet'}</p>
+            <p class="empty-state__body">
+              ${hasFilter
+                ? 'Try adjusting your search or clearing the category filter.'
+                : 'Be the first to create one! Hit "+ Create Event" above.'}
+            </p>
+            ${hasFilter
+              ? '<button class="btn-secondary" onclick="clearFilters()">Clear filters</button>'
+              : '<a href="create-event.html" class="btn-primary btn-inline">+ Create Event</a>'}
+          </div>`;
         return;
       }
 
-      grid.innerHTML = events.map(e => `
-        <div class="event-card">
-          <span class="badge">${e.category}</span>
-          <h3>${e.title}</h3>
-          <p>${e.date} · ${e.time}</p>
-          <p>${e.location}</p>
-          <p>${e.description}</p>
-          <a href="event-detail.html?id=${e.id}" class="btn-secondary">View details →</a>
-        </div>
-      `).join('');
+      grid.innerHTML = events.map(e => {
+        // Format date nicely if it's a Firestore Timestamp or ISO string
+        let dateStr = '';
+        if (e.date) {
+          const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+          if (!isNaN(d)) {
+            dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          } else {
+            dateStr = e.date; // raw string fallback
+          }
+        }
+
+        const timeStr = e.time || '';
+        const when    = [dateStr, timeStr].filter(Boolean).join(' · ');
+
+        return `
+          <div class="event-card">
+            <span class="badge">${escapeHtml(e.category || 'event')}</span>
+            <h3>${escapeHtml(e.title || 'Untitled')}</h3>
+            ${when ? `<p>📅 ${escapeHtml(when)}</p>` : ''}
+            ${e.location ? `<p>📍 ${escapeHtml(e.location)}</p>` : ''}
+            ${e.description ? `<p>${escapeHtml(e.description)}</p>` : ''}
+            <a href="event-detail.html?id=${e.id}" class="btn-secondary">View details →</a>
+          </div>`;
+      }).join('');
     }
 
-    // Wire up filters
-    document.getElementById('search-input').addEventListener('input', loadEvents);
+    function clearFilters() {
+      document.getElementById('search-input').value  = '';
+      document.getElementById('category-filter').value = '';
+      loadEvents();
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // ── Wire up filters ───────────────────────────────────────────────────────
+    document.getElementById('search-input').addEventListener('input', debounce(loadEvents, 350));
     document.getElementById('category-filter').addEventListener('change', loadEvents);
 
-    // Load on page open
+    // ── Initial load ──────────────────────────────────────────────────────────
     loadEvents();
   </script>
 
