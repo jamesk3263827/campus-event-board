@@ -57,6 +57,18 @@
         <div id="waitlisted-list" class="profile-event-list"></div>
       </section>
 
+      <section class="profile-section" style="border-top: 1px solid var(--border); margin-top: 2rem; padding-top: 2rem;">
+        <h3 style="color: var(--error, #e53e3e);">Danger Zone</h3>
+        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+          Deleting your account will remove all your data after a 30-day grace period.
+          You can cancel by logging back in within that window.
+        </p>
+        <button id="delete-account-btn" class="btn-secondary" style="border-color: var(--error, #e53e3e); color: var(--error, #e53e3e);">
+          Delete My Account
+        </button>
+        <div id="delete-account-error" class="error-text" style="display:none; margin-top:0.5rem;"></div>
+      </section>
+
     </div>
   </div>
 

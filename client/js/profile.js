@@ -41,6 +41,34 @@ firebase.auth().onAuthStateChanged(async (user) => {
   }
 });
 
+// ── Account deletion ───────────────────────────────────────────────────────
+document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
+  const confirmed = confirm(
+    'Are you sure you want to delete your account?\n\n' +
+    'Your account and all events you created will be permanently deleted in 30 days. ' +
+    'You can cancel by logging back in before then.'
+  );
+  if (!confirmed) return;
+
+  const btn = document.getElementById('delete-account-btn');
+  const errEl = document.getElementById('delete-account-error');
+  btn.disabled = true;
+  btn.textContent = 'Scheduling deletion…';
+  errEl.style.display = 'none';
+
+  try {
+    await api.deleteAccount();
+    firebase.auth().signOut().then(() => {
+      window.location.href = '../login.html';
+    });
+  } catch (err) {
+    errEl.textContent = err.message || 'Could not schedule deletion. Please try again.';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Delete My Account';
+  }
+});
+
 // ── Render a profile event list (or empty state) ────────────────────────────
 function renderList(containerId, events, type, emptyMsg, emptyIcon) {
   const el = document.getElementById(containerId);

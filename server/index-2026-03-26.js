@@ -70,104 +70,6 @@ app.get('/health', async (_req, res) => {
 app.use('/api/events', eventsRouter);
 app.use('/api/users', usersRouter);
 
-// ── Account deletion purge job ─────────────────────────────────────────────
-
-const cron = require('node-cron');
-
-// Runs every day at 2:00 AM — purges accounts pending deletion for 30+ days
-async function runPurgeJob() {
-  console.log('[PURGE] Running account deletion purge job...');
-  const db = admin.firestore();
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 30);
-
-  try {
-    const snap = await db.collection('users')
-      .where('status', '==', 'pending_deletion')
-      .where('deletionRequestedAt', '<=', cutoff)
-      .get();
-
-    for (const userDoc of snap.docs) {
-      const userId = userDoc.id;
-      console.log(`[PURGE] Purging user: ${userId}`);
-
-      const eventsSnap = await db.collection('events')
-        .where('createdBy', '==', userId)
-        .get();
-
-      for (const eventDoc of eventsSnap.docs) {
-        const rsvpsSnap = await eventDoc.ref.collection('rsvps').get();
-        for (const r of rsvpsSnap.docs) await r.ref.delete();
-
-        const commentsSnap = await eventDoc.ref.collection('comments').get();
-        for (const c of commentsSnap.docs) await c.ref.delete();
-
-        await eventDoc.ref.delete();
-      }
-
-      // 2. Remove the user's RSVPs from other people's events
-      //    For "going" RSVPs, call the Java cancel endpoint so waitlist promotion fires.
-      //    For "waitlisted" RSVPs, delete directly (no promotion needed).
-      const { cancelRsvp } = require('./services/javaService');
-      const allEventsSnap = await db.collection('events').get();
-      for (const eventDoc of allEventsSnap.docs) {
-        const rsvpRef = eventDoc.ref.collection('rsvps').doc(userId);
-        const rsvpSnap = await rsvpRef.get();
-        if (!rsvpSnap.exists) continue;
-
-        if (rsvpSnap.data().status === 'going') {
-          // Let Java handle the cancellation and promote the next waitlisted user
-          try {
-            await cancelRsvp(userId, eventDoc.id);
-          } catch (err) {
-            console.warn(`[PURGE] Could not cancel going RSVP for event ${eventDoc.id}:`, err.message);
-          }
-        } else {
-          // Waitlisted — delete doc and decrement waitlistCount
-          await rsvpRef.delete();
-          await eventDoc.ref.update({
-            waitlistCount: admin.firestore.FieldValue.increment(-1)
-          });
-        }
-      }
-
-      // 3. Delete comments left by this user on other people's events
-      const allEventsForComments = await db.collection('events').get();
-      for (const eventDoc of allEventsForComments.docs) {
-        const commentsSnap = await eventDoc.ref.collection('comments')
-          .where('authorId', '==', userId)
-          .get();
-        for (const commentDoc of commentsSnap.docs) {
-          await commentDoc.ref.delete();
-        }
-      }
-
-      // 4. Delete Firestore user document
-      await db.collection('users').doc(userId).delete();
-
-      // 5. Delete Firebase Auth account
-      await admin.auth().deleteUser(userId);
-
-      console.log(`[PURGE] Purged user ${userId} successfully.`);
-    }
-    console.log(`[PURGE] Job complete. Processed ${snap.size} account(s).`);
-  } catch (err) {
-    console.error('[PURGE] Purge job failed:', err);
-  }
-}
-
-cron.schedule('0 2 * * *', runPurgeJob);
-
-// ── Temporary test route — REMOVE BEFORE GOING TO PRODUCTION ─────────────────
-app.post('/dev/run-purge', async (_req, res) => {
-  try {
-    await runPurgeJob();
-    res.json({ message: 'Purge job completed. Check server console for details.' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ── 404 handler ───────────────────────────────────────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({ error: 'Route not found' });
@@ -182,6 +84,67 @@ app.use((err, _req, res, _next) => {
   }
   console.error('Unhandled error:', err);
   res.status(500).json({ error: 'Internal server error' });
+});
+
+// ── Account deletion purge job ─────────────────────────────────────────────
+
+const cron = require('node-cron');
+
+// Runs every day at 2:00 AM — purges accounts pending deletion for 30+ days
+cron.schedule('0 2 * * *', async () => {
+  console.log('[CRON] Running account deletion purge job...');
+  const db = admin.firestore();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+
+  try {
+    const snap = await db.collection('users')
+      .where('status', '==', 'pending_deletion')
+      .where('deletionRequestedAt', '<=', cutoff)
+      .get();
+
+    for (const userDoc of snap.docs) {
+      const userId = userDoc.id;
+      console.log(`[CRON] Purging user: ${userId}`);
+
+      // 1. Delete all events created by this user
+      //    (subcollections like rsvps and comments must be deleted too)
+      const eventsSnap = await db.collection('events')
+        .where('createdBy', '==', userId)
+        .get();
+
+      for (const eventDoc of eventsSnap.docs) {
+        // Delete rsvps subcollection
+        const rsvpsSnap = await eventDoc.ref.collection('rsvps').get();
+        for (const r of rsvpsSnap.docs) await r.ref.delete();
+
+        // Delete comments subcollection
+        const commentsSnap = await eventDoc.ref.collection('comments').get();
+        for (const c of commentsSnap.docs) await c.ref.delete();
+
+        // Delete the event itself
+        await eventDoc.ref.delete();
+      }
+
+      // 2. Remove the user's RSVPs from other people's events
+      const allEventsSnap = await db.collection('events').get();
+      for (const eventDoc of allEventsSnap.docs) {
+        const rsvpRef = eventDoc.ref.collection('rsvps').doc(userId);
+        const rsvpSnap = await rsvpRef.get();
+        if (rsvpSnap.exists) await rsvpRef.delete();
+      }
+
+      // 3. Delete Firestore user document
+      await db.collection('users').doc(userId).delete();
+
+      // 4. Delete Firebase Auth account
+      await admin.auth().deleteUser(userId);
+
+      console.log(`[CRON] Purged user ${userId} successfully.`);
+    }
+  } catch (err) {
+    console.error('[CRON] Purge job failed:', err);
+  }
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────

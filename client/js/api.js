@@ -144,6 +144,10 @@ const api = {
 
   // Profile
   getProfile: () => apiFetch('/events/user/profile'),
+
+  // Account deletion — marks user as pending deletion; actual deletion happens after 30 days
+  deleteAccount: () => apiFetch('/users/request-deletion', { method: 'POST' }),
+  cancelDeletion: () => apiFetch('/users/cancel-deletion',  { method: 'POST' }),
 };
 
 // ── Global offline / online detection ────────────────────────────────────────
