@@ -57,24 +57,20 @@ public class WaitlistController {
             return ResponseEntity.ok(response);
 
         } catch (IllegalArgumentException e) {
-            // Missing required fields
             return ResponseEntity.badRequest().body(
                 new RsvpResponse("error", e.getMessage(),
-                    request.getUserId(), request.getEventId())
+                    request.getUserId(), request.getEventId(), null)
             );
-
         } catch (RuntimeException e) {
-            // Event not found, already RSVP'd, etc.
             return ResponseEntity.badRequest().body(
                 new RsvpResponse("error", e.getMessage(),
-                    request.getUserId(), request.getEventId())
+                    request.getUserId(), request.getEventId(), null)
             );
-
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body(
                 new RsvpResponse("error", "Internal server error — check Spring Boot logs.",
-                    request.getUserId(), request.getEventId())
+                    request.getUserId(), request.getEventId(), null)
             );
         }
     }
@@ -91,15 +87,42 @@ public class WaitlistController {
 
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(
-                new RsvpResponse("error", e.getMessage(), userId, eventId)
+                new RsvpResponse("error", e.getMessage(), userId, eventId, null)
             );
-
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body(
                 new RsvpResponse("error", "Internal server error — check Spring Boot logs.",
-                    userId, eventId)
+                    userId, eventId, null)
             );
+        }
+    }
+
+    // ── POST /waitlist/fill-capacity ──────────────────────────────────────────
+    // Body: { "eventId": "evt456", "spotsOpened": 2 }
+    // Called by Node when an organizer increases an event's capacity.
+    // Promotes up to spotsOpened waitlisted users into "going".
+    @PostMapping("/fill-capacity")
+    public ResponseEntity<Map<String, String>> fillCapacity(
+            @RequestBody Map<String, Object> body) {
+        String eventId = (String) body.get("eventId");
+        Integer spotsOpened = (Integer) body.get("spotsOpened");
+
+        if (eventId == null || spotsOpened == null || spotsOpened <= 0) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "eventId and spotsOpened (> 0) are required."));
+        }
+
+        try {
+            waitlistService.promoteToFillCapacity(eventId, spotsOpened);
+            return ResponseEntity.ok(Map.of(
+                "status",  "ok",
+                "message", "Promoted up to " + spotsOpened + " waitlisted user(s)."
+            ));
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                .body(Map.of("error", "Promotion failed — check Spring Boot logs."));
         }
     }
 }

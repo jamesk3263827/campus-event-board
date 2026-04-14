@@ -71,4 +71,20 @@ async function checkJavaHealth() {
   return { reachable: false };
 }
 
-module.exports = { rsvpToEvent, cancelRsvp, checkJavaHealth };
+/**
+ * Called when an event's capacity is increased.
+ * Tells Java to promote up to `spotsOpened` waitlisted users into "going".
+ */
+async function fillCapacity(eventId, spotsOpened) {
+  try {
+    const response = await javaClient.post('/waitlist/fill-capacity', {
+      eventId,
+      spotsOpened,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(extractError(error, 'Fill-capacity promotion failed.'));
+  }
+}
+
+module.exports = { rsvpToEvent, cancelRsvp, checkJavaHealth, fillCapacity };

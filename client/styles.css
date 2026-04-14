@@ -152,6 +152,7 @@ select {
   color: var(--gray-900);
   transition: border-color var(--transition);
   -webkit-appearance: none;
+  appearance: none;
 }
 
 input:focus,
@@ -326,15 +327,25 @@ textarea { resize: vertical; min-height: 80px; }
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: box-shadow var(--transition);
+  transition: box-shadow var(--transition), transform var(--transition);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
 }
 
-.event-card:hover { box-shadow: var(--shadow-md); }
+.event-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  text-decoration: none;
+}
+
+.event-card:active { transform: translateY(0); }
 
 .event-card h3 {
   font-size: 1rem;
   font-weight: 600;
   margin: 4px 0 2px;
+  color: var(--gray-900);
 }
 
 .event-card p {
@@ -342,13 +353,9 @@ textarea { resize: vertical; min-height: 80px; }
   color: var(--gray-600);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.event-card a.btn-secondary {
-  margin-top: auto;
-  align-self: flex-start;
 }
 
 /* Badge */
@@ -571,6 +578,49 @@ textarea { resize: vertical; min-height: 80px; }
   font-size: 0.825rem;
   color: var(--gray-600);
   margin-top: 8px;
+}
+
+/* ── Add to Calendar ───────────────────────────────────────────────────── */
+.calendar-section {
+  margin: 16px 0;
+}
+
+.calendar-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.calendar-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  min-width: 220px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.calendar-dropdown a,
+.calendar-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 14px;
+  color: #333;
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.calendar-dropdown a:hover,
+.calendar-dropdown button:hover {
+  background: #f4f6f8;
 }
 
 /* Inline admin action (delete event) */
@@ -954,3 +1004,108 @@ body.is-offline .offline-banner { display: block; }
 .text-center { text-align: center; }
 .mt-4 { margin-top: 16px; }
 .mt-8 { margin-top: 32px; }
+
+/* ================================================================
+   ATTENDEES PANEL
+   ================================================================ */
+.attendees-panel {
+  margin-top: 24px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.attendees-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.attendees-panel-header h2 { margin: 0; font-size: 1.1rem; }
+
+.btn-close-attendees {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: var(--gray-600);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+.btn-close-attendees:hover { background: var(--gray-100); color: var(--gray-900); }
+
+.attendees-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.attendees-tab {
+  flex: 1;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.attendees-tab:hover { background: var(--gray-100); color: var(--gray-900); }
+.attendees-tab.active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+
+.attendees-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 20px;
+  color: var(--gray-600);
+  font-size: 0.9rem;
+}
+
+.attendees-list { padding: 8px 0; }
+
+.attendee-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: 0.9rem;
+}
+.attendee-row:last-child { border-bottom: none; }
+
+.attendee-index {
+  font-weight: 700;
+  color: var(--brand);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.attendee-name  { font-weight: 600; color: var(--gray-900); }
+.attendee-email { color: var(--gray-600); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.attendees-empty {
+  padding: 24px 20px;
+  color: var(--gray-600);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .attendee-row {
+    grid-template-columns: 28px 1fr;
+    grid-template-rows: auto auto;
+  }
+  .attendee-index { grid-row: 1 / 3; }
+  .attendee-email { grid-column: 2; font-size: 0.8rem; }
+}

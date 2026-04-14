@@ -44,17 +44,70 @@ if (registerForm) {
       const userCredential = await auth.createUserWithEmailAndPassword(email, password);
       const user = userCredential.user;
 
-      // Save user info to Firestore
-      await db.collection("users").doc(user.uid).set({
-        userId: user.uid,
-        name: name,
-        email: email,
-        role: "user",
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      // Get token for the Node API call
+      const token = await user.getIdToken();
+
+      // Register user in Firestore + trigger welcome email via Node
+      const response = await fetch('http://localhost:3000/api/users/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name, email })
       });
 
-      // Redirect to events page after registration
-      window.location.href = "pages/events.html";
+      if (!response.ok) {
+        throw new Error('Registration incomplete. Please try again.');
+      }
+
+      // E-01: send Firebase email verification
+      auth.currentUser.sendEmailVerification().catch(err => {
+        console.warn('Verification email failed to send:', err.message);
+      });
+
+      // Don't redirect — show a "please verify" message instead
+      document.getElementById('register-form').innerHTML = `
+        <div style="text-align:center; padding: 20px 0;">
+          <p style="font-size:18px; font-weight:bold; color:#2E5F8A; margin-bottom:12px;">
+            Almost there!
+          </p>
+          <p style="font-size:15px; color:#444; margin-bottom:16px;">
+            We sent a verification email to <strong>${email}</strong>.<br>
+            Please check your inbox and click the link to verify your account.
+          </p>
+          <p style="font-size:14px; color:#888; margin-bottom:20px;">
+            Once verified, you can log in below.
+          </p>
+          <a href="login.html"
+             style="display:inline-block; background:#2E5F8A; color:#fff;
+                    padding:12px 28px; border-radius:6px; text-decoration:none;
+                    font-weight:bold; font-size:14px;">
+            Go to Login →
+          </a>
+          <p style="margin-top:16px; font-size:13px; color:#888;">
+            Didn't receive it? Check your spam folder or
+            <a href="#" id="resend-from-register" style="color:#2E5F8A;">
+              click here to resend
+            </a>.
+          </p>
+        </div>
+      `;
+
+      // Wire up the resend link in the confirmation message
+      const resendFromReg = document.getElementById('resend-from-register');
+      if (resendFromReg) {
+        resendFromReg.addEventListener('click', async (e) => {
+          e.preventDefault();
+          try {
+            await auth.currentUser.sendEmailVerification();
+            resendFromReg.textContent = 'Sent! Check your inbox.';
+            resendFromReg.style.pointerEvents = 'none';
+          } catch (err) {
+            resendFromReg.textContent = 'Could not resend. Try again shortly.';
+          }
+        });
+      }
 
     } catch (error) {
       handleFirebaseError(error);
@@ -86,9 +139,52 @@ if (loginForm) {
     try {
       await auth.signInWithEmailAndPassword(email, password);
 
-      // Store the token for API calls
+      // E-01 enforcement: block unverified accounts
+      if (!auth.currentUser.emailVerified) {
+        const unverifiedEmail = auth.currentUser.email;
+        await auth.signOut();
+
+        showError('general-error',
+          'Please verify your email address before logging in. ' +
+          'Check your inbox for the verification link.'
+        );
+
+        const resendEl = document.getElementById('resend-verification');
+        const resendLink = document.getElementById('resend-link');
+        if (resendEl) resendEl.style.display = 'block';
+
+        if (resendLink) {
+          resendLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+              const cred = await auth.signInWithEmailAndPassword(
+                unverifiedEmail, password
+              );
+              await cred.user.sendEmailVerification();
+              await auth.signOut();
+              resendLink.textContent = 'Verification email sent! Check your inbox.';
+              resendLink.style.pointerEvents = 'none';
+            } catch (err) {
+              showError('general-error', 'Could not resend. Please try again.');
+            }
+          });
+        }
+        return;
+      }
+
+      // Verified — proceed with normal login
       const token = await auth.currentUser.getIdToken();
       localStorage.setItem("authToken", token);
+
+      // If this account was pending deletion, cancel it immediately on login.
+      // Fire-and-forget — a failure here must never block the redirect.
+      fetch('http://localhost:3000/api/users/reinstate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      }).catch(err => console.warn('[REINSTATE] Could not reach server:', err.message));
 
       window.location.href = "pages/events.html";
 
@@ -97,6 +193,29 @@ if (loginForm) {
     }
   });
 }
+
+// ─── FORGOT PASSWORD ─────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const forgotLink = document.getElementById('forgot-password-link');
+  if (forgotLink) {
+    forgotLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      if (!email) {
+        showError('email-error', 'Enter your email address above first.');
+        return;
+      }
+      try {
+        await auth.sendPasswordResetEmail(email);
+        document.getElementById('login-form').innerHTML =
+          '<p style="text-align:center;color:#2E5F8A;font-size:15px;">' +
+          'Password reset email sent! Check your inbox.</p>';
+      } catch (error) {
+        handleFirebaseError(error);
+      }
+    });
+  }
+});
 
 // ─── HELPER FUNCTIONS ────────────────────────────────────
 
@@ -122,10 +241,17 @@ async function apiRequest(url, options = {}) {
   });
 }
 
-// Redirect to login if not logged in
+// Redirect to login if not logged in, and kick out unverified sessions
 function requireAuth() {
   auth.onAuthStateChanged((user) => {
-    if (!user) window.location.href = "../login.html";
+    if (!user) {
+      window.location.href = "../login.html";
+      return;
+    }
+    if (!user.emailVerified) {
+      auth.signOut();
+      window.location.href = "../login.html";
+    }
   });
 }
 

@@ -141,14 +141,18 @@
       }
 
       grid.innerHTML = events.map(e => {
-        // Format date nicely if it's a Firestore Timestamp or ISO string
+        // Parse YYYY-MM-DD as local midnight to avoid UTC timezone rollback
         let dateStr = '';
         if (e.date) {
-          const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-          if (!isNaN(d)) {
+          if (typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date)) {
+            const [year, month, day] = e.date.split('-').map(Number);
+            const d = new Date(year, month - 1, day);
             dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           } else {
-            dateStr = e.date; // raw string fallback
+            const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+            if (!isNaN(d)) {
+              dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            }
           }
         }
 
@@ -156,14 +160,13 @@
         const when    = [dateStr, timeStr].filter(Boolean).join(' · ');
 
         return `
-          <div class="event-card">
+          <a href="event-detail.html?id=${e.id}" class="event-card">
             <span class="badge">${escapeHtml(e.category || 'event')}</span>
             <h3>${escapeHtml(e.title || 'Untitled')}</h3>
             ${when ? `<p>📅 ${escapeHtml(when)}</p>` : ''}
             ${e.location ? `<p>📍 ${escapeHtml(e.location)}</p>` : ''}
             ${e.description ? `<p>${escapeHtml(e.description)}</p>` : ''}
-            <a href="event-detail.html?id=${e.id}" class="btn-secondary">View details →</a>
-          </div>`;
+          </a>`;
       }).join('');
     }
 

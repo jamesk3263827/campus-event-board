@@ -81,9 +81,45 @@
         <p id="rsvp-message" class="rsvp-message" role="status" aria-live="polite"></p>
       </div>
 
+      <!-- Add to Calendar -->
+      <div class="calendar-section" id="calendar-section" style="display:none;">
+        <div class="calendar-dropdown-wrapper">
+          <button class="btn-secondary" id="add-to-calendar-btn" aria-haspopup="true" aria-expanded="false">
+            📅 Add to Calendar
+          </button>
+          <div class="calendar-dropdown" id="calendar-dropdown" style="display:none;" role="menu">
+            <a id="gcal-link" href="#" target="_blank" rel="noopener noreferrer" role="menuitem">
+              Google Calendar
+            </a>
+            <button id="ics-download-btn" role="menuitem">
+              Download .ics (Apple / Outlook)
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Admin actions — shown only to event creator (set by event-detail.js) -->
       <div id="event-admin-actions" class="event-admin-actions" style="display:none;">
+        <a id="edit-event-btn" href="#" class="btn-secondary">Edit Event</a>
         <button id="delete-event-btn" class="btn-danger">Delete Event</button>
+        <button id="view-attendees-btn" class="btn-secondary">👥 View Attendees</button>
+      </div>
+
+      <!-- Attendees panel — shown only to event creator -->
+      <div id="attendees-panel" class="attendees-panel" style="display:none;">
+        <div class="attendees-panel-header">
+          <h2>Attendees</h2>
+          <button id="close-attendees-btn" class="btn-close-attendees" aria-label="Close attendees panel">✕</button>
+        </div>
+        <div id="attendees-tabs" class="attendees-tabs">
+          <button class="attendees-tab active" data-tab="going">Going (<span id="going-tab-count">0</span>)</button>
+          <button class="attendees-tab" data-tab="waitlisted">Waitlist (<span id="waitlist-tab-count">0</span>)</button>
+        </div>
+        <div id="attendees-loading" class="attendees-loading">
+          <div class="spinner"></div> Loading…
+        </div>
+        <div id="attendees-list" class="attendees-list" style="display:none;"></div>
+        <p id="attendees-error" class="error" style="display:none;"></p>
       </div>
 
       <!-- Comments -->
@@ -146,7 +182,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <script src="../auth.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/calendar.js"></script>
   <script src="../js/event-detail.js"></script>
-
 </body>
 </html>

@@ -92,7 +92,8 @@ function renderList(containerId, events, type, emptyMsg, emptyIcon) {
   el.innerHTML = events.map(e => {
     let dateStr = '';
     if (e.date) {
-      const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+      const [year, month, day] = e.date.split('-').map(Number);
+      const d = new Date(year, month - 1, day);
       if (!isNaN(d)) {
         dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       }

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Event – Campus Event Board</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+  <div class="offline-banner" role="alert">
+    📵 You're offline — some features may not work
+  </div>
+
+  <nav class="navbar">
+    <a id="nav-back" href="events.html" class="nav-back">← Event</a>
+    <div class="navbar-actions">
+      <button onclick="logout()" class="btn-secondary">Log out</button>
+    </div>
+  </nav>
+
+  <!-- Loading state -->
+  <div id="loading-state" class="page-container">
+    <div class="page-loading">
+      <div class="spinner"></div>
+      Loading event…
+    </div>
+  </div>
+
+  <!-- Error state -->
+  <div id="error-state" class="page-container" style="display:none;">
+    <div class="error-banner" role="alert">
+      <span id="error-message">Something went wrong.</span>
+    </div>
+    <p style="margin-top:16px;">
+      <a href="events.html">← Back to Events</a>
+    </p>
+  </div>
+
+  <!-- Edit form — hidden until event is loaded -->
+  <div id="form-container" class="page-container" style="display:none;">
+    <h2 style="margin-bottom: 24px;">Edit Event</h2>
+
+    <form id="edit-form" novalidate>
+
+      <div class="create-event-grid">
+
+        <div class="form-group full-width">
+          <label for="title">Event Title <span aria-hidden="true">*</span></label>
+          <input type="text" id="title" placeholder="e.g. Pizza Night with the CS Club" required maxlength="120">
+        </div>
+
+        <div class="form-group full-width">
+          <label for="description">Description <span aria-hidden="true">*</span></label>
+          <textarea id="description" placeholder="What's this event about? Include any details attendees need to know." rows="4" required maxlength="2000"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="category">Category <span aria-hidden="true">*</span></label>
+          <select id="category" required>
+            <option value="">Select a category</option>
+            <option value="social">Social</option>
+            <option value="academic">Academic</option>
+            <option value="sports">Sports</option>
+            <option value="arts">Arts</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="capacity">Capacity <span aria-hidden="true">*</span></label>
+          <input type="number" id="capacity" placeholder="e.g. 50" min="1" max="10000" required>
+        </div>
+
+        <div class="form-group">
+          <label for="date">Date <span aria-hidden="true">*</span></label>
+          <input type="date" id="date" required>
+        </div>
+
+        <div class="form-group">
+          <label for="time">Time <span aria-hidden="true">*</span></label>
+          <input type="time" id="time" required>
+        </div>
+
+        <div class="form-group full-width">
+          <label for="location">Location <span aria-hidden="true">*</span></label>
+          <input type="text" id="location" placeholder="e.g. Main Quad, Room 201" required maxlength="200">
+        </div>
+
+      </div><!-- /.create-event-grid -->
+
+      <div id="error-msg" class="error-banner" style="display:none;" role="alert"></div>
+
+      <div style="display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap;">
+        <button type="submit" class="btn-primary btn-inline" id="submit-btn">Save Changes</button>
+        <a id="cancel-link" href="events.html" class="btn-secondary">Cancel</a>
+      </div>
+
+    </form>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="../auth.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/edit-event.js"></script>
+  <script>requireAuth();</script>
+
+</body>
+</html>

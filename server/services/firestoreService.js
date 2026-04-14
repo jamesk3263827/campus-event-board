@@ -94,9 +94,13 @@ async function getComments(eventId) {
 
 // POST a new comment
 async function addComment(eventId, userId, text) {
+  const userDoc = await getDb().collection('users').doc(userId).get();
+  const authorName = userDoc.exists ? (userDoc.data().name || 'Attendee') : 'Attendee';
+
   const payload = {
     text,
     authorId: userId,
+    authorName,
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   };
   const ref = await getDb()
@@ -106,15 +110,23 @@ async function addComment(eventId, userId, text) {
   return { id: ref.id, ...payload };
 }
 
-// DELETE a comment (only by its author)
+// DELETE a comment — allowed if requester is the comment author OR the event creator
 async function deleteComment(eventId, commentId, userId) {
-  const ref = getDb()
-    .collection(COLLECTION).doc(eventId)
+  const db = getDb();
+  const commentRef = db.collection(COLLECTION).doc(eventId)
     .collection('comments').doc(commentId);
-  const doc = await ref.get();
-  if (!doc.exists) return false;
-  if (doc.data().authorId !== userId) throw new Error('FORBIDDEN');
-  await ref.delete();
+  const eventRef = db.collection(COLLECTION).doc(eventId);
+
+  const [commentDoc, eventDoc] = await Promise.all([commentRef.get(), eventRef.get()]);
+
+  if (!commentDoc.exists) return false;
+
+  const isAuthor       = commentDoc.data().authorId === userId;
+  const isEventCreator = eventDoc.exists && eventDoc.data().createdBy === userId;
+
+  if (!isAuthor && !isEventCreator) throw new Error('FORBIDDEN');
+
+  await commentRef.delete();
   return true;
 }
 
@@ -149,4 +161,43 @@ async function getUserProfile(userId) {
   return { created, going, waitlisted };
 }
 
-module.exports = { getAllEvents, getEventById, createEvent, updateEvent, deleteEvent, getComments, addComment, deleteComment, getUserProfile };
+// Get all attendees (going + waitlisted) for an event,
+// with their email and name looked up from the users collection.
+// Returns an array of: { userId, email, name, status }
+async function getEventAttendees(eventId) {
+  const db = getDb();
+  const rsvpsSnap = await db
+    .collection(COLLECTION).doc(eventId)
+    .collection('rsvps')
+    .get();
+
+  if (rsvpsSnap.empty) return [];
+
+  // Collect all userIds from RSVP documents
+  const rsvps = rsvpsSnap.docs.map(doc => ({
+    userId: doc.id,
+    status: doc.data().status,
+  }));
+
+  // Batch-fetch all user documents in parallel
+  const userDocs = await Promise.all(
+    rsvps.map(r => db.collection('users').doc(r.userId).get())
+  );
+
+  const attendees = [];
+  rsvps.forEach((rsvp, i) => {
+    const userDoc = userDocs[i];
+    if (userDoc.exists && userDoc.data().email) {
+      attendees.push({
+        userId: rsvp.userId,
+        status: rsvp.status,
+        email:  userDoc.data().email,
+        name:   userDoc.data().name || userDoc.data().email,
+      });
+    }
+  });
+
+  return attendees;
+}
+
+module.exports = { getAllEvents, getEventById, createEvent, updateEvent, deleteEvent, getComments, addComment, deleteComment, getUserProfile, getEventAttendees };

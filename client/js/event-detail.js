@@ -42,6 +42,7 @@ const deleteModal       = document.getElementById('delete-modal');
 const confirmDeleteBtn  = document.getElementById('confirm-delete-btn');
 const dismissDeleteBtn  = document.getElementById('dismiss-delete-btn');
 const deleteEventBtn    = document.getElementById('delete-event-btn');
+const editEventBtn      = document.getElementById('edit-event-btn');
 const adminActions      = document.getElementById('event-admin-actions');
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -68,6 +69,7 @@ if (!eventId) {
 // ─── Firestore listeners ──────────────────────────────────────────────────────
 function startListeners() {
   const db = firebase.firestore();
+  let commentsLoaded = false;
 
   eventUnsubscribe = db.collection('events').doc(eventId)
     .onSnapshot((snap) => {
@@ -79,6 +81,12 @@ function startListeners() {
       renderEventContent(eventDoc);
       renderButton();
       renderAdminActions(eventDoc);
+
+      // Load comments only once, guaranteed after eventDoc is set
+      if (!commentsLoaded) {
+        commentsLoaded = true;
+        loadComments();
+      }
     }, (err) => {
       showError('Failed to load event. Please refresh and try again.');
       console.error('Event listener error:', err);
@@ -95,8 +103,6 @@ function startListeners() {
         console.error('RSVP listener error:', err);
       });
   }
-
-  loadComments();
 }
 
 window.addEventListener('beforeunload', () => {
@@ -172,13 +178,18 @@ function renderEventContent(event) {
   } else {
     waitlistLabel.style.display  = 'none';
   }
+
+  renderCalendarLinks(event);
 }
 
-// ─── Admin actions (delete) — shown only to event creator ─────────────────────
+// ─── Admin actions (edit + delete) — shown only to event creator ─────────────
 function renderAdminActions(event) {
   if (!currentUser || !adminActions) return;
   if (event.createdBy === currentUser.uid) {
     adminActions.style.display = 'flex';
+    if (editEventBtn) {
+      editEventBtn.href = `edit-event.html?id=${event.id}`;
+    }
   }
 }
 
@@ -208,6 +219,40 @@ if (confirmDeleteBtn) {
       confirmDeleteBtn.textContent = 'Delete';
     }
   };
+}
+
+// ─── Calendar links ───────────────────────────────────────────────────────────
+function renderCalendarLinks(event) {
+  const section    = document.getElementById('calendar-section');
+  const toggleBtn  = document.getElementById('add-to-calendar-btn');
+  const dropdown   = document.getElementById('calendar-dropdown');
+  const gcalLink   = document.getElementById('gcal-link');
+  const icsBtn     = document.getElementById('ics-download-btn');
+
+  if (!section || !event.date) return;
+  section.style.display = 'block';
+
+  gcalLink.href = buildGoogleCalendarUrl(event);
+
+  icsBtn.onclick = () => {
+    downloadIcs(event);
+    dropdown.style.display = 'none';
+    toggleBtn.setAttribute('aria-expanded', 'false');
+  };
+
+  toggleBtn.onclick = () => {
+    const isOpen = dropdown.style.display === 'block';
+    dropdown.style.display = isOpen ? 'none' : 'block';
+    toggleBtn.setAttribute('aria-expanded', String(!isOpen));
+  };
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!section.contains(e.target)) {
+      dropdown.style.display = 'none';
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
 }
 
 // ─── RSVP state machine ───────────────────────────────────────────────────────
@@ -366,7 +411,9 @@ function renderComments(comments) {
   }
 
   listEl.innerHTML = comments.map(c => {
-    const isOwn = currentUser && c.authorId === currentUser.uid;
+    const isOwn        = currentUser && c.authorId === currentUser.uid;
+    const isEventOwner = currentUser && eventDoc && eventDoc.createdBy === currentUser.uid;
+    const canDelete    = isOwn || isEventOwner;
     let ts = 'Just now';
     if (c.createdAt) {
       const d = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.createdAt);
@@ -375,9 +422,9 @@ function renderComments(comments) {
     return `
       <div class="comment" data-id="${c.id}">
         <div class="comment-header">
-          <span class="comment-author">${isOwn ? 'You' : 'Attendee'}</span>
+          <span class="comment-author">${isOwn ? 'You' : escapeHtml(c.authorName || 'Attendee')}</span>
           <span class="comment-time">${ts}</span>
-          ${isOwn
+          ${canDelete
             ? `<button class="btn-delete-comment" onclick="handleDeleteComment('${c.id}')" aria-label="Delete comment">Delete</button>`
             : ''}
         </div>
@@ -451,3 +498,79 @@ firebase.auth().onAuthStateChanged((user) => {
     }
   });
 });
+
+// ─── Attendees panel ──────────────────────────────────────────────────────────
+let attendeesData    = [];   // full list from API
+let activeTab        = 'going';
+
+const attendeesPanel   = document.getElementById('attendees-panel');
+const attendeesList    = document.getElementById('attendees-list');
+const attendeesLoading = document.getElementById('attendees-loading');
+const attendeesError   = document.getElementById('attendees-error');
+const goingTabCount    = document.getElementById('going-tab-count');
+const waitlistTabCount = document.getElementById('waitlist-tab-count');
+const viewAttendeesBtn = document.getElementById('view-attendees-btn');
+const closeAttendeesBtn = document.getElementById('close-attendees-btn');
+
+if (viewAttendeesBtn) {
+  viewAttendeesBtn.onclick = async () => {
+    attendeesPanel.style.display = 'block';
+    attendeesPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    await loadAttendees();
+  };
+}
+
+if (closeAttendeesBtn) {
+  closeAttendeesBtn.onclick = () => {
+    attendeesPanel.style.display = 'none';
+  };
+}
+
+// Tab switching
+document.getElementById('attendees-tabs')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.attendees-tab');
+  if (!btn) return;
+  activeTab = btn.dataset.tab;
+  document.querySelectorAll('.attendees-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderAttendeesList();
+});
+
+async function loadAttendees() {
+  attendeesLoading.style.display = 'flex';
+  attendeesList.style.display    = 'none';
+  attendeesError.style.display   = 'none';
+
+  try {
+    attendeesData = await api.getAttendees(eventId);
+    const going     = attendeesData.filter(a => a.status === 'going');
+    const waitlisted = attendeesData.filter(a => a.status === 'waitlisted');
+    goingTabCount.textContent    = going.length;
+    waitlistTabCount.textContent = waitlisted.length;
+    renderAttendeesList();
+  } catch (err) {
+    attendeesError.textContent   = err.message || 'Could not load attendees.';
+    attendeesError.style.display = 'block';
+  } finally {
+    attendeesLoading.style.display = 'none';
+  }
+}
+
+function renderAttendeesList() {
+  const filtered = attendeesData.filter(a => a.status === activeTab);
+  attendeesList.style.display = 'block';
+
+  if (filtered.length === 0) {
+    const label = activeTab === 'going' ? 'going' : 'on the waitlist';
+    attendeesList.innerHTML = `<p class="attendees-empty">No one is ${label} yet.</p>`;
+    return;
+  }
+
+  attendeesList.innerHTML = filtered.map((a, i) => `
+    <div class="attendee-row">
+      <span class="attendee-index">${activeTab === 'waitlisted' ? `#${i + 1}` : '✓'}</span>
+      <span class="attendee-name">${escapeHtml(a.name || a.email)}</span>
+      <span class="attendee-email">${escapeHtml(a.email)}</span>
+    </div>
+  `).join('');
+}

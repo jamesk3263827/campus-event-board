@@ -145,6 +145,9 @@ const api = {
   // Profile
   getProfile: () => apiFetch('/events/user/profile'),
 
+  // Attendees — creator only
+  getAttendees: (eventId) => apiFetch(`/events/${eventId}/attendees`),
+
   // Account deletion — marks user as pending deletion; actual deletion happens after 30 days
   deleteAccount: () => apiFetch('/users/request-deletion', { method: 'POST' }),
   cancelDeletion: () => apiFetch('/users/cancel-deletion',  { method: 'POST' }),

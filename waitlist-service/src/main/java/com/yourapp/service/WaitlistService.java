@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class WaitlistService {
@@ -26,6 +27,12 @@ public class WaitlistService {
     private static final String FIELD_JOINED_AT        = "joinedAt";
     private static final String FIELD_USER_ID          = "userId";
     private static final String STATUS_WAITLISTED      = "waitlisted";
+
+    @org.springframework.beans.factory.annotation.Value("${node.base.url}")
+    private String nodeBaseUrl;
+
+    @org.springframework.beans.factory.annotation.Value("${node.internal.secret}")
+    private String nodeInternalSecret;
 
     // -------------------------------------------------------------------------
     // rsvp() — unchanged from your original
@@ -111,7 +118,26 @@ public class WaitlistService {
             ? "You're confirmed for this event!"
             : "You've been added to the waitlist.";
 
-        return new RsvpResponse(resolvedStatus, message, userId, eventId);
+        // Look up the waitlist position from Firestore if the user is waitlisted.
+        // The position was written to the rsvp doc inside the transaction above.
+        Long waitlistPosition = null;
+        if ("waitlisted".equals(resolvedStatus)) {
+            try {
+                com.google.cloud.firestore.DocumentSnapshot rsvpSnap = db
+                    .collection(EVENTS_COLLECTION)
+                    .document(eventId)
+                    .collection(RSVPS_SUBCOLLECTION)
+                    .document(userId)
+                    .get().get();
+                if (rsvpSnap.exists()) {
+                    waitlistPosition = rsvpSnap.getLong("waitlistPosition");
+                }
+            } catch (Exception e) {
+                System.err.println("Could not fetch waitlistPosition: " + e.getMessage());
+            }
+        }
+
+        return new RsvpResponse(resolvedStatus, message, userId, eventId, waitlistPosition);
     }
 
     // -------------------------------------------------------------------------
@@ -164,7 +190,8 @@ public class WaitlistService {
             "cancelled",
             "RSVP cancelled (was: " + oldStatus + ")",
             safeUserId,
-            safeEventId
+            safeEventId,
+            null   // waitlistPosition not applicable for cancellations
         );
     }
 
@@ -246,14 +273,36 @@ public class WaitlistService {
         // recalculation cannot roll back an already-committed promotion.
         recalculateWaitlistPositions(eventId);
 
-        // NEXT STEP: send push/email notification to promotedUserId
+                // E-13: notify Node to send the promotion email
+        try {
+            java.net.http.HttpClient httpClient =
+                java.net.http.HttpClient.newHttpClient();
+            String body = String.format(
+                "{\"userId\":\"%s\",\"eventId\":\"%s\"}",
+                promotedUserId, eventId);
+            java.net.http.HttpRequest notifyRequest =
+                java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(
+                        nodeBaseUrl + "/internal/notify/promotion"))
+                    .header("Content-Type", "application/json")
+                    .header("x-internal-secret", nodeInternalSecret)
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+            httpClient.sendAsync(notifyRequest,
+                java.net.http.HttpResponse.BodyHandlers.ofString());
+            System.err.println("PROMOTE: notification sent for userId="
+                + promotedUserId);
+        } catch (Exception e) {
+            System.err.println("PROMOTE: notification failed: " + e.getMessage());
+        }
+
     }
 
     // -------------------------------------------------------------------------
     // recalculateWaitlistPositions() — re-numbers positions 1, 2, 3 …
     // Safe to call any time positions may have drifted (promotion, cancellation).
     // -------------------------------------------------------------------------
-    public void recalculateWaitlistPositions(@Nonnull String eventId)
+        public void recalculateWaitlistPositions(@Nonnull String eventId)
             throws ExecutionException, InterruptedException {
 
         Firestore db = FirestoreClient.getFirestore();
@@ -272,15 +321,82 @@ public class WaitlistService {
             return;
         }
 
-        // WriteBatch handles up to 500 documents atomically.
-        // If you ever expect > 500 waitlist entries, split into chunks of 500.
-        WriteBatch batch = db.batch();
+        // Capture old positions before writing new ones
+        java.util.List<java.util.Map<String, Object>> positionChanges =
+            new java.util.ArrayList<>();
 
+        WriteBatch batch = db.batch();
         for (int i = 0; i < waitlistDocs.size(); i++) {
-            batch.update(waitlistDocs.get(i).getReference(),
-                         "waitlistPosition", i + 1); // 1-indexed
+            QueryDocumentSnapshot doc = waitlistDocs.get(i);
+            int newPosition = i + 1;
+
+            // Read old position (may be null if never set)
+            Long oldPositionLong = doc.getLong("waitlistPosition");
+            int oldPosition = oldPositionLong != null
+                ? oldPositionLong.intValue()
+                : newPosition; // treat missing as same position
+
+            batch.update(doc.getReference(), "waitlistPosition", newPosition);
+
+            String userId = doc.getString(FIELD_USER_ID);
+            if (userId != null) {
+                java.util.Map<String, Object> change = new java.util.HashMap<>();
+                change.put("userId",      userId);
+                change.put("oldPosition", oldPosition);
+                change.put("newPosition", newPosition);
+                positionChanges.add(change);
+            }
         }
 
         batch.commit().get();
+
+        // E-17: notify Node to send position update emails
+        if (!positionChanges.isEmpty()) {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                java.util.Map<String, Object> payload = new java.util.HashMap<>();
+                payload.put("eventId",   eventId);
+                payload.put("positions", positionChanges);
+                String body = mapper.writeValueAsString(payload);
+
+                java.net.http.HttpClient httpClient =
+                    java.net.http.HttpClient.newHttpClient();
+                java.net.http.HttpRequest notifyRequest =
+                    java.net.http.HttpRequest.newBuilder()
+                        .uri(java.net.URI.create(
+                            nodeBaseUrl + "/internal/notify/waitlist-position"))
+                        .header("Content-Type", "application/json")
+                        .header("x-internal-secret", nodeInternalSecret)
+                        .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body))
+                        .build();
+                httpClient.sendAsync(notifyRequest,
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
+            } catch (Exception e) {
+                System.err.println("RECALCULATE: position notify failed: "
+                    + e.getMessage());
+            }
+        }
     }
+
+    // -------------------------------------------------------------------------
+    // promoteToFillCapacity() — promotes up to spotsOpened waitlisted users.
+    // Called when an organizer increases an event's capacity.
+    // -------------------------------------------------------------------------
+    public void promoteToFillCapacity(@Nonnull String eventId, int spotsOpened)
+            throws ExecutionException, InterruptedException {
+        for (int i = 0; i < spotsOpened; i++) {
+            // Check whether anyone is still on the waitlist before each iteration
+            Firestore db = FirestoreClient.getFirestore();
+            long waitlistCount = db
+                    .collection(EVENTS_COLLECTION)
+                    .document(eventId)
+                    .collection(RSVPS_SUBCOLLECTION)
+                    .whereEqualTo(FIELD_STATUS, STATUS_WAITLISTED)
+                    .get().get()
+                    .size();
+            if (waitlistCount == 0) break;
+            promoteFromWaitlist(eventId);
+        }
+    }
+
 }
