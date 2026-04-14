@@ -1,3 +1,6 @@
+# Java build output
+target/
+
 # Firebase / Google credentials - NEVER commit these
 serviceAccountKey.json
 firebase-admin-key.json
