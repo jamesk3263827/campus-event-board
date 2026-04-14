@@ -16,5 +16,8 @@ node_modules/
 # Mac system files
 .DS_Store
 
+# BFG jar
+bfg-1.15.0.jar
+
 # Firebase service account key - NEVER commit this
 waitlist-service/src/main/resources/serviceAccountKey.json
