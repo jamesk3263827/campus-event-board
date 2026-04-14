@@ -17,8 +17,9 @@ const transporter = nodemailer.createTransport({
 // to      — recipient email address (string)
 // subject — email subject line (string)
 // html    — full HTML body (string, use inline CSS only)
+// options — optional overrides, e.g. { replyTo: 'someone@example.com' }
 
-async function sendEmail(to, subject, html) {
+async function sendEmail(to, subject, html, options = {}) {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.warn('[EMAIL] EMAIL_USER or EMAIL_PASS not set — skipping send.');
     return;
@@ -29,6 +30,7 @@ async function sendEmail(to, subject, html) {
     to,
     subject,
     html,
+    ...options,   // allows replyTo, cc, bcc, etc. to be passed through
   };
 
   try {

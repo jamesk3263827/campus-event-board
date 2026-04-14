@@ -148,6 +148,12 @@ const api = {
   // Attendees — creator only
   getAttendees: (eventId) => apiFetch(`/events/${eventId}/attendees`),
 
+  // Contact Organizer — sends a message to the organizer without exposing their email
+  contactOrganizer: (eventId, message) => apiFetch(`/events/${eventId}/contact-organizer`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  }),
+
   // Account deletion — marks user as pending deletion; actual deletion happens after 30 days
   deleteAccount: () => apiFetch('/users/request-deletion', { method: 'POST' }),
   cancelDeletion: () => apiFetch('/users/cancel-deletion',  { method: 'POST' }),

@@ -98,6 +98,12 @@
         </div>
       </div>
 
+      <!-- Contact Organizer — shown to logged-in non-organizers (set by event-detail.js) -->
+      <div id="contact-organizer-section" style="display:none;">
+        <button id="contact-organizer-btn" class="btn-secondary">✉️ Contact Organizer</button>
+        <p id="contact-success-msg" class="rsvp-message" role="status" aria-live="polite" style="display:none;"></p>
+      </div>
+
       <!-- Admin actions — shown only to event creator (set by event-detail.js) -->
       <div id="event-admin-actions" class="event-admin-actions" style="display:none;">
         <a id="edit-event-btn" href="#" class="btn-secondary">Edit Event</a>
@@ -172,6 +178,29 @@
       <div class="modal-actions">
         <button id="confirm-delete-btn" class="btn-danger">Delete</button>
         <button id="dismiss-delete-btn" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact Organizer modal -->
+  <div id="contact-modal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="contact-modal-title">
+    <div class="modal">
+      <h2 id="contact-modal-title">Message the Organizer</h2>
+      <p style="font-size:14px;color:#666;margin-top:0;margin-bottom:16px;">
+        Your message will be sent on your behalf. The organizer's email address will not be shared with you.
+      </p>
+      <textarea
+        id="contact-message"
+        rows="5"
+        maxlength="1000"
+        placeholder="Write your question or message here…"
+        aria-label="Message to organizer"
+        style="width:100%;box-sizing:border-box;padding:10px;font-size:14px;border:1px solid #ccc;border-radius:6px;resize:vertical;font-family:inherit;"
+      ></textarea>
+      <p id="contact-error" class="error" role="alert" style="display:none;margin-top:8px;"></p>
+      <div class="modal-actions">
+        <button id="send-contact-btn" class="btn-primary">Send Message</button>
+        <button id="dismiss-contact-btn" class="btn-secondary">Cancel</button>
       </div>
     </div>
   </div>
