@@ -6,13 +6,25 @@ const admin   = require('firebase-admin');
 const usersRouter = require('./routes/users');
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
+// Production: FIREBASE_SERVICE_ACCOUNT_JSON env var holds the full JSON string.
+// Local dev:  falls back to the firebase-admin-key.json file.
 let serviceAccount;
-try {
-  serviceAccount = require('../firebase-admin-key.json');
-} catch (e) {
-  console.error('ERROR: Could not load firebase-admin-key.json');
-  console.error('Make sure firebase-admin-key.json exists in the project root.');
-  process.exit(1);
+
+if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  } catch (e) {
+    console.error('ERROR: FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON');
+    process.exit(1);
+  }
+} else {
+  try {
+    serviceAccount = require('../firebase-admin-key.json');
+  } catch (e) {
+    console.error('ERROR: No Firebase credentials found.');
+    console.error('Set FIREBASE_SERVICE_ACCOUNT_JSON env var or add firebase-admin-key.json');
+    process.exit(1);
+  }
 }
 
 admin.initializeApp({
@@ -23,7 +35,9 @@ const eventsRouter = require('./routes/events');
 const app = express();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-// Allow common local dev origins. Extend this list as needed.
+// Allow common local dev origins plus the live Firebase Hosting URLs.
+// After deploying the frontend (Part 4), uncomment the two firebaseapp lines
+// and set FRONTEND_URL in the Render dashboard to your .web.app URL.
 const allowedOrigins = [
   'http://127.0.0.1:5500',   // Live Server default
   'http://localhost:5500',
@@ -34,7 +48,11 @@ const allowedOrigins = [
   'http://127.0.0.1:8080',   // Java service (if it ever serves a page)
   'http://localhost:8080',
   'null',                    // file:// origins open as "null"
-];
+  // ↓ Uncomment and fill in after deploying the frontend (Part 4 of Week 8 guide)
+  // 'https://YOUR-PROJECT-ID.web.app',
+  // 'https://YOUR-PROJECT-ID.firebaseapp.com',
+  process.env.FRONTEND_URL,  // set this in Render dashboard to your .web.app URL
+].filter(Boolean);           // removes undefined if FRONTEND_URL is not set yet
 
 app.use(cors({
   origin: (origin, callback) => {
