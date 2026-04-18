@@ -5,8 +5,7 @@ WORKDIR /app
 
 # Copy the Maven wrapper and pom.xml first so dependency downloads are cached
 # separately from source changes — speeds up rebuilds significantly.
-COPY mvnw mvnw.cmd* pom.xml ./
-COPY .mvn/ .mvn/
+COPY mvnw mvnw.cmd* pom.xml .mvn* ./
 RUN chmod +x mvnw && ./mvnw dependency:go-offline -q
 
 # Copy source and build the fat JAR. -DskipTests avoids running unit tests
