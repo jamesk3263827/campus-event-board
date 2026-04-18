@@ -13,5 +13,6 @@
 //   apiBaseUrl: 'https://campus-event-board-node.onrender.com/api'
 
 window.APP_CONFIG = {
-  apiBaseUrl: 'https://YOUR-NODE-SERVICE.onrender.com/api'
+  apiBaseUrl: 'https://campus-event-board-node.onrender.com/api'
 };
+

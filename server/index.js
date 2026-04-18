@@ -49,8 +49,8 @@ const allowedOrigins = [
   'http://localhost:8080',
   'null',                    // file:// origins open as "null"
   // ↓ Uncomment and fill in after deploying the frontend (Part 4 of Week 8 guide)
-  // 'https://YOUR-PROJECT-ID.web.app',
-  // 'https://YOUR-PROJECT-ID.firebaseapp.com',
+   'https://campus-event-board-13a10.web.app',
+   'https://campus-event-board-13a10.firebaseapp.com',
   process.env.FRONTEND_URL,  // set this in Render dashboard to your .web.app URL
 ].filter(Boolean);           // removes undefined if FRONTEND_URL is not set yet
 
