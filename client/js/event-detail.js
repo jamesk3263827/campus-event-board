@@ -143,15 +143,24 @@ function renderEventContent(event) {
     }
   }
 
-  // Format date + time
+  // ── Date + time ──────────────────────────────────────────────────────────────
+  // IMPORTANT: always parse YYYY-MM-DD strings as LOCAL midnight using the
+  // Date(year, month, day) constructor. Using new Date('YYYY-MM-DD') parses
+  // as UTC midnight, which rolls back one day for users west of UTC (e.g. New York).
   if (event.date) {
     let d;
     if (event.date?.toDate) {
+      // Firestore Timestamp object
       d = event.date.toDate();
-    } else {
+    } else if (typeof event.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(event.date)) {
+      // Plain YYYY-MM-DD string — parse as local midnight
       const [y, m, day] = event.date.split('-').map(Number);
-      d = new Date(y, m - 1, day);   // local midnight — no timezone shift
+      d = new Date(y, m - 1, day);
+    } else {
+      // Fallback for any other format
+      d = new Date(event.date);
     }
+
     let dateStr = d.toLocaleDateString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
@@ -159,7 +168,7 @@ function renderEventContent(event) {
     eventDate.textContent = dateStr;
   } else {
     eventDate.textContent = 'Date TBD';
-}
+  }
 
   // Capacity bar
   const going    = event.goingCount    || 0;
@@ -432,6 +441,7 @@ function openCancelModal(currentStatus) {
   cancelModalBody.textContent = currentStatus === 'waitlisted'
     ? 'Remove yourself from the waitlist?'
     : 'Cancel your RSVP? Your spot will be given to the next person on the waitlist.';
+
   cancelModal.style.display = 'flex';
 }
 
@@ -586,7 +596,7 @@ firebase.auth().onAuthStateChanged((user) => {
 });
 
 // ─── Attendees panel ──────────────────────────────────────────────────────────
-let attendeesData    = [];   // full list from API
+let attendeesData    = [];
 let activeTab        = 'going';
 
 const attendeesPanel   = document.getElementById('attendees-panel');
@@ -629,7 +639,7 @@ async function loadAttendees() {
 
   try {
     attendeesData = await api.getAttendees(eventId);
-    const going     = attendeesData.filter(a => a.status === 'going');
+    const going      = attendeesData.filter(a => a.status === 'going');
     const waitlisted = attendeesData.filter(a => a.status === 'waitlisted');
     goingTabCount.textContent    = going.length;
     waitlistTabCount.textContent = waitlisted.length;

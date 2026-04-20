@@ -1,9 +1,15 @@
 // client/js/create-event.js
 
-// Set the minimum date to today so users can't accidentally create past events
+// Set the minimum date to today so users can't accidentally create past events.
+// Use local date parts instead of toISOString() — toISOString() returns UTC midnight,
+// which rolls to tomorrow's date for users west of UTC after 8pm ET.
 const dateInput = document.getElementById('date');
 if (dateInput) {
-  dateInput.min = new Date().toISOString().split('T')[0];
+  const now  = new Date();
+  const yyyy = now.getFullYear();
+  const mm   = String(now.getMonth() + 1).padStart(2, '0');
+  const dd   = String(now.getDate()).padStart(2, '0');
+  dateInput.min = `${yyyy}-${mm}-${dd}`;
 }
 
 document.getElementById('create-form').addEventListener('submit', async (e) => {
