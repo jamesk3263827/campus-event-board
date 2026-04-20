@@ -12,13 +12,6 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// ── Resolve the Node API base URL ─────────────────────────────────────────────
-// Reads from config.js (window.APP_CONFIG) if present — set to the live Render URL.
-// Falls back to localhost for local development.
-const AUTH_BASE_URL = (window.APP_CONFIG && window.APP_CONFIG.apiBaseUrl)
-  ? window.APP_CONFIG.apiBaseUrl
-  : 'http://localhost:3000/api';
-
 // ─── REGISTER ───────────────────────────────────────────
 const registerForm = document.getElementById("register-form");
 if (registerForm) {
@@ -55,7 +48,7 @@ if (registerForm) {
       const token = await user.getIdToken();
 
       // Register user in Firestore + trigger welcome email via Node
-      const response = await fetch(`${AUTH_BASE_URL}/users/register`, {
+      const response = await fetch('http://localhost:3000/api/users/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +178,7 @@ if (loginForm) {
 
       // If this account was pending deletion, cancel it immediately on login.
       // Fire-and-forget — a failure here must never block the redirect.
-      fetch(`${AUTH_BASE_URL}/users/reinstate`, {
+      fetch('http://localhost:3000/api/users/reinstate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

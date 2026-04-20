@@ -1,11 +1,7 @@
 // client/js/api.js
 // Central API wrapper — handles auth tokens, errors, timeouts, and offline state.
 
-// In production this is overridden by config.js (loaded before api.js in each HTML file).
-// In local dev it falls back to localhost:3000.
-const BASE_URL = (window.APP_CONFIG && window.APP_CONFIG.apiBaseUrl)
-  ? window.APP_CONFIG.apiBaseUrl
-  : 'http://localhost:3000/api';
+const BASE_URL = 'http://localhost:3000/api';
 
 // ── Request timeout (ms) ─────────────────────────────────────────────────────
 const TIMEOUT_MS = 12000;
