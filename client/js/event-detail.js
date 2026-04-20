@@ -145,7 +145,13 @@ function renderEventContent(event) {
 
   // Format date + time
   if (event.date) {
-    const d = event.date?.toDate ? event.date.toDate() : new Date(event.date);
+    let d;
+    if (event.date?.toDate) {
+      d = event.date.toDate();
+    } else {
+      const [y, m, day] = event.date.split('-').map(Number);
+      d = new Date(y, m - 1, day);   // local midnight — no timezone shift
+    }
     let dateStr = d.toLocaleDateString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
@@ -153,7 +159,7 @@ function renderEventContent(event) {
     eventDate.textContent = dateStr;
   } else {
     eventDate.textContent = 'Date TBD';
-  }
+}
 
   // Capacity bar
   const going    = event.goingCount    || 0;
