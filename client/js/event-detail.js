@@ -88,7 +88,6 @@ function startListeners() {
         return;
       }
       eventDoc = { id: snap.id, ...snap.data() };
-      console.log('DEBUG date value:', eventDoc.date, typeof eventDoc.date);
       renderEventContent(eventDoc);
       renderButton();
       renderAdminActions(eventDoc);
