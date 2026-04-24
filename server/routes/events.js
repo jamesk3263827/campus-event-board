@@ -14,6 +14,7 @@ const { eventCancelledOrganizer } = require('../templates/eventCancelledOrganize
 const { eventEditedAttendee } = require('../templates/eventEditedAttendee');
 const { capacityReached } = require('../templates/capacityReached');
 const { newCommentNotification } = require('../templates/newCommentNotification');
+const { organizerRemovedAttendee } = require('../templates/organizerRemovedAttendee');
 
 
 // Compares old event fields to new submitted data.
@@ -34,15 +35,6 @@ function diffEventFields(oldEvent, newData) {
     }
   }
   return changes;
-}
-
-// Minimal HTML escaping for user-supplied strings in email bodies.
-function escapeHtml(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 // GET /api/events?category=sports&search=trivia
@@ -292,6 +284,57 @@ router.delete('/:eventId/rsvp', verifyToken, async (req, res) => {
 });
 
 
+// DELETE /api/events/:eventId/rsvp/:userId  (auth required, creator only)
+// Allows the event creator to forcibly remove any attendee or waitlisted user.
+// Delegates to cancelRsvp() so Java handles waitlist promotion automatically.
+router.delete('/:eventId/rsvp/:userId', verifyToken, async (req, res) => {
+  const { eventId, userId: targetUserId } = req.params;
+  const requesterId = req.user.uid;
+
+  try {
+    const admin = require('firebase-admin');
+
+    // Gate: only the event creator may use this route
+    const eventSnap = await admin.firestore().collection('events').doc(eventId).get();
+    if (!eventSnap.exists) return res.status(404).json({ error: 'Event not found' });
+    if (eventSnap.data().createdBy !== requesterId) {
+      return res.status(403).json({ error: 'Only the event creator can remove attendees' });
+    }
+
+    // Capture the user's current status BEFORE cancelling (for the email type)
+    const rsvpSnap = await admin.firestore()
+      .collection('events').doc(eventId)
+      .collection('rsvps').doc(targetUserId).get();
+    const statusBefore = rsvpSnap.exists ? rsvpSnap.data().status : null;
+
+    // Delegate to Java — handles Firestore update + waitlist promotion
+    const result = await cancelRsvp(targetUserId, eventId);
+    res.json(result);
+
+    // Email the removed person (fire-and-forget)
+    const [targetUserDoc, eventDocFresh] = await Promise.all([
+      admin.firestore().collection('users').doc(targetUserId).get(),
+      admin.firestore().collection('events').doc(eventId).get(),
+    ]);
+
+    if (targetUserDoc.exists && eventDocFresh.exists) {
+      const { email, name } = targetUserDoc.data();
+      const event = { id: eventId, ...eventDocFresh.data() };
+      const displayName = name || email;
+      const type = statusBefore === 'waitlisted' ? 'Waitlist' : 'RSVP';
+      const html = organizerRemovedAttendee(event, displayName, type);
+      sendEmail(
+        email,
+        `You've been removed from: ${event.title}`,
+        html
+      );
+    }
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+
 // GET /api/events/:eventId/comments
 router.get('/:eventId/comments', async (req, res) => {
   try {
@@ -384,85 +427,5 @@ router.get('/:id/attendees', verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/events/:id/contact-organizer  (auth required)
-// Sends the logged-in user's message to the event organizer.
-// The organizer's email address is looked up server-side and is never sent to the browser.
-router.post('/:id/contact-organizer', verifyToken, async (req, res) => {
-  const { message } = req.body;
-  if (!message || !message.trim()) {
-    return res.status(400).json({ error: 'Message cannot be empty.' });
-  }
-
-  try {
-    const admin = require('firebase-admin');
-
-    // 1. Load the event to get the organizer's UID
-    const eventDoc = await admin.firestore().collection('events').doc(req.params.id).get();
-    if (!eventDoc.exists) return res.status(404).json({ error: 'Event not found.' });
-    const event = eventDoc.data();
-
-    // Prevent organizers from messaging themselves
-    if (event.createdBy === req.user.uid) {
-      return res.status(403).json({ error: 'You cannot contact yourself as the organizer.' });
-    }
-
-    // 2. Look up the organizer's email from users collection (never sent to the client)
-    const organizerDoc = await admin.firestore()
-      .collection('users').doc(event.createdBy).get();
-    if (!organizerDoc.exists) {
-      return res.status(404).json({ error: 'Organizer not found.' });
-    }
-    const { email: organizerEmail, name: organizerName } = organizerDoc.data();
-
-    // 3. Look up the sender's display name
-    const senderDoc = await admin.firestore()
-      .collection('users').doc(req.user.uid).get();
-    const senderName  = senderDoc.exists
-      ? (senderDoc.data().name || senderDoc.data().email)
-      : (req.user.email || 'A user');
-    const senderEmail = req.user.email;
-
-    // 4. Build and send the email via the existing Nodemailer transporter
-    const safeMessage = escapeHtml(message.trim()).replace(/\n/g, '<br>');
-    const html = `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
-        <div style="background:#2E5F8A;padding:20px 28px;">
-          <p style="margin:0;font-size:18px;font-weight:bold;color:#ffffff;">
-            Campus Event Board — Message from an Attendee
-          </p>
-        </div>
-        <div style="padding:28px;">
-          <p>Hi ${escapeHtml(organizerName || 'Organizer')},</p>
-          <p>
-            <strong>${escapeHtml(senderName)}</strong> sent you a message about your event
-            <strong>${escapeHtml(event.title || 'your event')}</strong>:
-          </p>
-          <blockquote style="border-left:4px solid #2E5F8A;margin:16px 0;padding:12px 16px;background:#f0f5fb;border-radius:0 6px 6px 0;color:#333;">
-            ${safeMessage}
-          </blockquote>
-          <p style="color:#555;font-size:14px;">
-            You can reply directly to this email to respond to them.
-          </p>
-        </div>
-        <div style="background:#f5f5f5;padding:14px 28px;font-size:12px;color:#888;">
-          Sent via Campus Event Board · The sender's identity is known to the system but their
-          email address is only shared via the Reply-To header of this message.
-        </div>
-      </div>
-    `;
-
-    await sendEmail(
-      organizerEmail,
-      `Message about your event: ${event.title || 'your event'}`,
-      html,
-      { replyTo: senderEmail }   // organizer hits Reply → goes to the attendee
-    );
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('[contact-organizer] error:', err);
-    res.status(500).json({ error: 'Failed to send message. Please try again.' });
-  }
-});
-
 module.exports = router;
+

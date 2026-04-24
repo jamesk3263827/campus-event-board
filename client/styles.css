@@ -1056,8 +1056,11 @@ body.is-offline .offline-banner { display: block; }
   cursor: pointer;
   transition: var(--transition);
 }
-.attendees-tab:hover    { background: var(--gray-100); color: var(--gray-900); }
-.attendees-tab.active   { color: var(--brand); border-bottom-color: var(--brand); }
+.attendees-tab:hover { background: var(--gray-100); color: var(--gray-900); }
+.attendees-tab.active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
 
 .attendees-loading {
   display: flex;
@@ -1072,11 +1075,12 @@ body.is-offline .offline-banner { display: block; }
 
 .attendee-row {
   display: grid;
-  grid-template-columns: 32px 1fr auto;
+  grid-template-columns: 32px 1fr 1fr auto;
   align-items: center;
   gap: 12px;
   padding: 10px 20px;
   border-bottom: 1px solid var(--gray-100);
+  font-size: 0.9rem;
 }
 .attendee-row:last-child { border-bottom: none; }
 
@@ -1087,42 +1091,24 @@ body.is-offline .offline-banner { display: block; }
   text-align: center;
 }
 
-.attendee-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.attendee-name  { font-weight: 600; font-size: 0.9rem; color: var(--gray-900); }
-.attendee-email {
-  font-size: 0.8rem;
-  color: var(--gray-600);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.attendee-name  { font-weight: 600; color: var(--gray-900); }
+.attendee-email { color: var(--gray-600); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .btn-remove-attendee {
-  flex-shrink: 0;
-  padding: 5px 12px;
-  font-size: 0.8rem;
-  font-weight: 600;
   background: none;
-  border: 1px solid var(--danger);
-  color: var(--danger);
+  border: 1px solid var(--gray-400);
+  color: var(--gray-600);
+  font-size: 0.78rem;
+  padding: 3px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: var(--transition);
   white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.btn-remove-attendee:hover:not(:disabled) {
-  background: var(--danger);
-  color: var(--white);
-}
-.btn-remove-attendee:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.btn-remove-attendee:hover {
+  background: #fdf5f5;
+  border-color: #c0a0a0;
+  color: #7a3e3e;
 }
 
 .attendees-empty {
@@ -1134,10 +1120,10 @@ body.is-offline .offline-banner { display: block; }
 
 @media (max-width: 480px) {
   .attendee-row {
-    grid-template-columns: 28px 1fr;
+    grid-template-columns: 28px 1fr auto;
     grid-template-rows: auto auto;
-    row-gap: 8px;
   }
-  .attendee-index    { grid-row: 1 / 3; align-self: center; }
-  .btn-remove-attendee { grid-column: 2; justify-self: start; }
+  .attendee-index { grid-row: 1 / 3; }
+  .attendee-email { grid-column: 2; font-size: 0.8rem; }
+  .btn-remove-attendee { grid-column: 3; grid-row: 1 / 3; }
 }

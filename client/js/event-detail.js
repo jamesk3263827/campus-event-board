@@ -45,16 +45,6 @@ const deleteEventBtn    = document.getElementById('delete-event-btn');
 const editEventBtn      = document.getElementById('edit-event-btn');
 const adminActions      = document.getElementById('event-admin-actions');
 
-// ─── Contact Organizer DOM refs ───────────────────────────────────────────────
-const contactOrgSection  = document.getElementById('contact-organizer-section');
-const contactOrgBtn      = document.getElementById('contact-organizer-btn');
-const contactSuccessMsg  = document.getElementById('contact-success-msg');
-const contactModal       = document.getElementById('contact-modal');
-const contactMessageEl   = document.getElementById('contact-message');
-const contactErrorEl     = document.getElementById('contact-error');
-const sendContactBtn     = document.getElementById('send-contact-btn');
-const dismissContactBtn  = document.getElementById('dismiss-contact-btn');
-
 // ─── State ───────────────────────────────────────────────────────────────────
 let eventId             = null;
 let currentUser         = null;
@@ -91,7 +81,6 @@ function startListeners() {
       renderEventContent(eventDoc);
       renderButton();
       renderAdminActions(eventDoc);
-      renderContactOrganizer(eventDoc);
 
       // Load comments only once, guaranteed after eventDoc is set
       if (!commentsLoaded) {
@@ -204,17 +193,6 @@ function renderAdminActions(event) {
   }
 }
 
-// ─── Contact Organizer — shown to logged-in non-organizers ───────────────────
-function renderContactOrganizer(event) {
-  if (!contactOrgSection) return;
-  // Show only when a user is logged in and they are NOT the organizer
-  if (currentUser && event.createdBy !== currentUser.uid) {
-    contactOrgSection.style.display = 'block';
-  } else {
-    contactOrgSection.style.display = 'none';
-  }
-}
-
 // Delete event flow
 if (deleteEventBtn) {
   deleteEventBtn.onclick = () => { deleteModal.style.display = 'flex'; };
@@ -243,62 +221,6 @@ if (confirmDeleteBtn) {
   };
 }
 
-// ─── Contact Organizer modal flow ─────────────────────────────────────────────
-if (contactOrgBtn) {
-  contactOrgBtn.onclick = () => {
-    contactMessageEl.value        = '';
-    contactErrorEl.textContent    = '';
-    contactErrorEl.style.display  = 'none';
-    contactModal.style.display    = 'flex';
-  };
-}
-
-if (dismissContactBtn) {
-  dismissContactBtn.onclick = () => { contactModal.style.display = 'none'; };
-}
-
-if (contactModal) {
-  contactModal.addEventListener('click', (e) => {
-    if (e.target === contactModal) contactModal.style.display = 'none';
-  });
-}
-
-if (sendContactBtn) {
-  sendContactBtn.onclick = async () => {
-    const message = contactMessageEl.value.trim();
-    contactErrorEl.style.display = 'none';
-
-    if (!message) {
-      contactErrorEl.textContent   = 'Please enter a message before sending.';
-      contactErrorEl.style.display = 'block';
-      return;
-    }
-
-    sendContactBtn.disabled    = true;
-    sendContactBtn.textContent = 'Sending…';
-
-    try {
-      await api.contactOrganizer(eventId, message);
-      contactModal.style.display = 'none';
-
-      // Show a brief inline success message below the button
-      if (contactSuccessMsg) {
-        contactSuccessMsg.textContent  = '✅ Your message was sent to the organizer.';
-        contactSuccessMsg.style.display = 'block';
-        setTimeout(() => {
-          contactSuccessMsg.style.display = 'none';
-        }, 6000);
-      }
-    } catch (err) {
-      contactErrorEl.textContent   = err.message || 'Failed to send. Please try again.';
-      contactErrorEl.style.display = 'block';
-    } finally {
-      sendContactBtn.disabled    = false;
-      sendContactBtn.textContent = 'Send Message';
-    }
-  };
-}
-
 // ─── Calendar links ───────────────────────────────────────────────────────────
 function renderCalendarLinks(event) {
   const section    = document.getElementById('calendar-section');
@@ -308,7 +230,6 @@ function renderCalendarLinks(event) {
   const icsBtn     = document.getElementById('ics-download-btn');
 
   if (!section || !event.date) return;
-
   section.style.display = 'block';
 
   gcalLink.href = buildGoogleCalendarUrl(event);
@@ -435,12 +356,11 @@ cancelModal.addEventListener('click', (e) => {
   if (e.target === cancelModal) cancelModal.style.display = 'none';
 });
 
-// Close all modals on Escape key
+// Close modal on Escape key
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     cancelModal.style.display = 'none';
-    if (deleteModal)  deleteModal.style.display  = 'none';
-    if (contactModal) contactModal.style.display = 'none';
+    if (deleteModal) deleteModal.style.display = 'none';
   }
 });
 
@@ -640,6 +560,8 @@ function renderAttendeesList() {
   const filtered = attendeesData.filter(a => a.status === activeTab);
   attendeesList.style.display = 'block';
 
+  const isCreator = currentUser && eventDoc && eventDoc.createdBy === currentUser.uid;
+
   if (filtered.length === 0) {
     const label = activeTab === 'going' ? 'going' : 'on the waitlist';
     attendeesList.innerHTML = `<p class="attendees-empty">No one is ${label} yet.</p>`;
@@ -647,10 +569,23 @@ function renderAttendeesList() {
   }
 
   attendeesList.innerHTML = filtered.map((a, i) => `
-    <div class="attendee-row">
+    <div class="attendee-row" data-user-id="${a.userId}">
       <span class="attendee-index">${activeTab === 'waitlisted' ? `#${i + 1}` : '✓'}</span>
       <span class="attendee-name">${escapeHtml(a.name || a.email)}</span>
       <span class="attendee-email">${escapeHtml(a.email)}</span>
+      ${isCreator
+        ? `<button class="btn-remove-attendee" onclick="handleRemoveAttendee('${a.userId}', '${escapeHtml(a.name || a.email)}')" aria-label="Remove attendee">Remove</button>`
+        : ''}
     </div>
   `).join('');
+}
+
+async function handleRemoveAttendee(userId, displayName) {
+  if (!confirm(`Remove ${displayName} from this event?\n\nThey will receive a notification email.`)) return;
+  try {
+    await api.removeAttendee(eventId, userId);
+    await loadAttendees();   // refresh panel — counts and rows update immediately
+  } catch (err) {
+    alert(err.message || 'Could not remove attendee. Please try again.');
+  }
 }
