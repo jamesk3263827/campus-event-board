@@ -14,8 +14,8 @@
 
   <nav class="navbar">
     <a href="events.html" class="nav-back">← Events</a>
-    <div class="navbar-actions">
-      <button class="btn-secondary" onclick="logout()">Log out</button>
+    <div class="navbar-actions" id="navbar-actions">
+      <!-- Populated by onAuthStateChanged in event-detail.js -->
     </div>
   </nav>
 
@@ -74,11 +74,11 @@
       <div id="waitlist-badge" class="waitlist-badge" style="display:none;">
         You are <strong>#<span id="waitlist-position">?</span></strong> on the waitlist
       </div>
+        <p id="rsvp-message" class="rsvp-message" role="status" aria-live="polite"></p>
 
       <!-- RSVP button -->
       <div class="rsvp-section">
         <button id="rsvp-btn" class="btn-rsvp" disabled>Loading…</button>
-        <p id="rsvp-message" class="rsvp-message" role="status" aria-live="polite"></p>
       </div>
 
       <!-- Add to Calendar -->
@@ -133,18 +133,9 @@
         <h2>Comments</h2>
 
         <div id="comment-form-wrapper">
-          <form id="comment-form" class="comment-form" novalidate>
-            <textarea
-              id="comment-input"
-              placeholder="Share your thoughts…"
-              rows="3"
-              required
-              maxlength="1000"
-              aria-label="Comment text"
-            ></textarea>
-            <button type="submit" class="btn-primary btn-inline btn-comment-submit">Post Comment</button>
-            <p id="comment-error" class="error" role="alert"></p>
-          </form>
+          <div class="page-loading" style="padding: 12px 0;">
+            <div class="spinner"></div>
+          </div>
         </div>
 
         <div id="comments-list" class="comments-list" aria-live="polite">
@@ -205,6 +196,19 @@
     </div>
   </div>
 
+  <!-- Guest: must register to RSVP -->
+  <div id="guest-rsvp-modal" class="modal-overlay" style="display:none;"
+       role="dialog" aria-modal="true" aria-labelledby="guest-rsvp-title">
+    <div class="modal">
+      <h2 id="guest-rsvp-title">Registration Required</h2>
+      <p>You must have an account to RSVP for events. Sign up for free to save your spot!</p>
+      <div class="modal-actions">
+        <a href="../register.html" class="btn-primary">Register Now</a>
+        <button id="guest-rsvp-dismiss" class="btn-secondary">Maybe Later</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Firebase CDN -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -213,5 +217,17 @@
   <script src="../js/api.js"></script>
   <script src="../js/calendar.js"></script>
   <script src="../js/event-detail.js"></script>
+
+  <script>
+    // Guest RSVP modal dismiss handlers
+    document.getElementById('guest-rsvp-dismiss').addEventListener('click', () => {
+      document.getElementById('guest-rsvp-modal').style.display = 'none';
+    });
+    document.getElementById('guest-rsvp-modal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('guest-rsvp-modal')) {
+        document.getElementById('guest-rsvp-modal').style.display = 'none';
+      }
+    });
+  </script>
 </body>
 </html>

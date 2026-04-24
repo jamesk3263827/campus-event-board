@@ -1,0 +1,50 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Events ────────────────────────────────────────────────────────────────
+    // Anyone (including guests) can read events and their subcollections.
+    // Only authenticated users can create, update, or delete.
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null
+        && request.auth.uid == resource.data.createdBy;
+
+      // ── RSVPs ──────────────────────────────────────────────────────────────
+      // Users can read their own RSVP doc (for the live listener in event-detail.js).
+      // The event creator can read all RSVPs (for the attendees panel).
+      // Only authenticated users can write their own RSVP.
+      // The Node/Java backend (Admin SDK) bypasses these rules entirely.
+      match /rsvps/{userId} {
+        allow read: if request.auth != null
+          && (request.auth.uid == userId
+              || request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.createdBy);
+        allow write: if request.auth != null
+          && request.auth.uid == userId;
+      }
+
+      // ── Comments ──────────────────────────────────────────────────────────
+      // Anyone can read comments (guests can browse discussions).
+      // Only authenticated users can post; only the author or event creator
+      // can delete.
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow delete: if request.auth != null
+          && (request.auth.uid == resource.data.authorId
+              || request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.createdBy);
+        allow update: if false;   // comments are immutable once posted
+      }
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+    // Users can read and write only their own profile document.
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+  }
+}

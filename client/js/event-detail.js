@@ -53,6 +53,28 @@ let eventDoc            = null;
 let eventUnsubscribe    = null;
 let userRsvpUnsubscribe = null;
 
+// ─── Auth-aware navbar ────────────────────────────────────────────────────────
+// This page is open to guests; we render the correct nav buttons based on state.
+function renderNavbar(user) {
+  const actions = document.getElementById('navbar-actions');
+  if (!actions) return;
+  if (user) {
+    actions.innerHTML = `
+      <button onclick="logout()" class="btn-secondary">Log out</button>
+    `;
+  } else {
+    actions.innerHTML = `
+      <a href="../login.html" class="btn-secondary">Log in</a>
+    `;
+  }
+}
+
+// ─── Guest RSVP modal ────────────────────────────────────────────────────────
+function showRegisterRsvpModal() {
+  const modal = document.getElementById('guest-rsvp-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 const params = new URLSearchParams(window.location.search);
 eventId = params.get('id');
@@ -62,6 +84,7 @@ if (!eventId) {
 } else {
   firebase.auth().onAuthStateChanged((user) => {
     currentUser = user;
+    renderNavbar(user);
     startListeners();
   });
 }
@@ -285,9 +308,10 @@ function renderButton() {
       break;
 
     case RSVP_STATES.LOGIN:
-      rsvpBtn.textContent = 'Log in to RSVP';
-      rsvpBtn.classList.add('btn-rsvp--secondary');
-      rsvpBtn.onclick = () => window.location.href = '../login.html';
+      // Guest: show a dialog prompting them to register rather than redirecting
+      rsvpBtn.textContent = 'RSVP to this event';
+      rsvpBtn.classList.add('btn-rsvp--join');
+      rsvpBtn.onclick = () => showRegisterRsvpModal();
       break;
 
     case RSVP_STATES.GOING:
@@ -298,10 +322,11 @@ function renderButton() {
 
     case RSVP_STATES.WAITLISTED: {
       const position = userRsvpDoc?.waitlistPosition || '?';
-      rsvpBtn.textContent = `Waitlisted — #${position} in line`;
+      rsvpBtn.textContent = `Leave Waitlist`;
       rsvpBtn.classList.add('btn-rsvp--waitlisted');
       rsvpBtn.onclick = () => openCancelModal('waitlisted');
       rsvpMessage.textContent = "We'll notify you if a spot opens up.";
+      
 
       if (badge) {
         badge.style.display = 'inline-flex';
@@ -356,11 +381,13 @@ cancelModal.addEventListener('click', (e) => {
   if (e.target === cancelModal) cancelModal.style.display = 'none';
 });
 
-// Close modal on Escape key
+// Close modals on Escape key
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     cancelModal.style.display = 'none';
     if (deleteModal) deleteModal.style.display = 'none';
+    const guestRsvpModal = document.getElementById('guest-rsvp-modal');
+    if (guestRsvpModal) guestRsvpModal.style.display = 'none';
   }
 });
 
@@ -463,10 +490,32 @@ function formatTime(t) {
 // ─── Comment form — wire up after auth is known ───────────────────────────────
 firebase.auth().onAuthStateChanged((user) => {
   const wrapper = document.getElementById('comment-form-wrapper');
+  if (!wrapper) return;
+
   if (!user) {
-    wrapper.innerHTML = '<p class="auth-link" style="margin-bottom:0;"><a href="../login.html">Log in</a> to leave a comment.</p>';
+    // Guest: invite them to register or log in
+    wrapper.innerHTML = `
+      <p class="auth-link" style="margin-bottom:0;">
+        <a href="../register.html">Register</a> or
+        <a href="../login.html">log in</a> to leave a comment.
+      </p>`;
     return;
   }
+
+  // Logged-in user: render the comment form
+  wrapper.innerHTML = `
+    <form id="comment-form" class="comment-form" novalidate>
+      <textarea
+        id="comment-input"
+        placeholder="Share your thoughts…"
+        rows="3"
+        required
+        maxlength="1000"
+        aria-label="Comment text"
+      ></textarea>
+      <button type="submit" class="btn-primary btn-inline btn-comment-submit">Post Comment</button>
+      <p id="comment-error" class="error" role="alert"></p>
+    </form>`;
 
   const form    = document.getElementById('comment-form');
   const input   = document.getElementById('comment-input');
@@ -500,16 +549,16 @@ firebase.auth().onAuthStateChanged((user) => {
 });
 
 // ─── Attendees panel ──────────────────────────────────────────────────────────
-let attendeesData    = [];   // full list from API
+let attendeesData    = [];
 let activeTab        = 'going';
 
-const attendeesPanel   = document.getElementById('attendees-panel');
-const attendeesList    = document.getElementById('attendees-list');
-const attendeesLoading = document.getElementById('attendees-loading');
-const attendeesError   = document.getElementById('attendees-error');
-const goingTabCount    = document.getElementById('going-tab-count');
-const waitlistTabCount = document.getElementById('waitlist-tab-count');
-const viewAttendeesBtn = document.getElementById('view-attendees-btn');
+const attendeesPanel    = document.getElementById('attendees-panel');
+const attendeesList     = document.getElementById('attendees-list');
+const attendeesLoading  = document.getElementById('attendees-loading');
+const attendeesError    = document.getElementById('attendees-error');
+const goingTabCount     = document.getElementById('going-tab-count');
+const waitlistTabCount  = document.getElementById('waitlist-tab-count');
+const viewAttendeesBtn  = document.getElementById('view-attendees-btn');
 const closeAttendeesBtn = document.getElementById('close-attendees-btn');
 
 if (viewAttendeesBtn) {
@@ -543,7 +592,7 @@ async function loadAttendees() {
 
   try {
     attendeesData = await api.getAttendees(eventId);
-    const going     = attendeesData.filter(a => a.status === 'going');
+    const going      = attendeesData.filter(a => a.status === 'going');
     const waitlisted = attendeesData.filter(a => a.status === 'waitlisted');
     goingTabCount.textContent    = going.length;
     waitlistTabCount.textContent = waitlisted.length;
@@ -584,7 +633,7 @@ async function handleRemoveAttendee(userId, displayName) {
   if (!confirm(`Remove ${displayName} from this event?\n\nThey will receive a notification email.`)) return;
   try {
     await api.removeAttendee(eventId, userId);
-    await loadAttendees();   // refresh panel — counts and rows update immediately
+    await loadAttendees();
   } catch (err) {
     alert(err.message || 'Could not remove attendee. Please try again.');
   }

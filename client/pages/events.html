@@ -15,9 +15,8 @@
 
   <nav class="navbar">
     <h1>Campus Event Board</h1>
-    <div class="navbar-actions">
-      <a href="profile.html" class="btn-secondary">Profile</a>
-      <button onclick="logout()" class="btn-secondary">Log out</button>
+    <div class="navbar-actions" id="navbar-actions">
+      <!-- Populated by onAuthStateChanged below -->
     </div>
   </nav>
 
@@ -40,7 +39,7 @@
         <option value="arts">Arts</option>
         <option value="other">Other</option>
       </select>
-      <a href="create-event.html" class="btn-primary btn-inline">+ Create Event</a>
+      <button id="create-event-btn" class="btn-primary btn-inline">+ Create Event</button>
     </div>
 
     <!-- Error banner (hidden by default) -->
@@ -48,7 +47,6 @@
 
     <!-- Events Grid (loading skeleton shown first) -->
     <div id="events-grid" aria-live="polite" aria-label="Events list">
-      <!-- Skeleton cards shown while loading -->
       <div class="skeleton-card">
         <div class="skeleton skeleton-line w-40"></div>
         <div class="skeleton skeleton-line w-80"></div>
@@ -63,6 +61,19 @@
 
   </div>
 
+  <!-- Guest: must register to create an event -->
+  <div id="guest-create-modal" class="modal-overlay" style="display:none;"
+       role="dialog" aria-modal="true" aria-labelledby="guest-create-title">
+    <div class="modal">
+      <h2 id="guest-create-title">Registration Required</h2>
+      <p>You must have an account to create an event. Join the Campus Event Board — it only takes a minute!</p>
+      <div class="modal-actions">
+        <a href="../register.html" class="btn-primary">Register Now</a>
+        <button id="guest-create-dismiss" class="btn-secondary">Maybe Later</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -71,7 +82,49 @@
   <script src="../js/api.js"></script>
 
   <script>
-    requireAuth();
+    // ── Auth-aware navbar ─────────────────────────────────────────────────────
+    // No requireAuth() — this page is open to everyone.
+    // We watch auth state to render the correct nav buttons.
+    let _currentUser = null;
+
+    firebase.auth().onAuthStateChanged((user) => {
+      _currentUser = user;
+      const actions = document.getElementById('navbar-actions');
+      if (user) {
+        actions.innerHTML = `
+          <a href="profile.html" class="btn-secondary">Profile</a>
+          <button onclick="logout()" class="btn-secondary">Log out</button>
+        `;
+      } else {
+        actions.innerHTML = `
+          <a href="../login.html" class="btn-secondary">Log in</a>
+        `;
+      }
+    });
+
+    // ── Create Event button ───────────────────────────────────────────────────
+    document.getElementById('create-event-btn').addEventListener('click', () => {
+      if (_currentUser) {
+        window.location.href = 'create-event.html';
+      } else {
+        document.getElementById('guest-create-modal').style.display = 'flex';
+      }
+    });
+
+    // Dismiss guest modal
+    document.getElementById('guest-create-dismiss').addEventListener('click', () => {
+      document.getElementById('guest-create-modal').style.display = 'none';
+    });
+    document.getElementById('guest-create-modal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('guest-create-modal')) {
+        document.getElementById('guest-create-modal').style.display = 'none';
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.getElementById('guest-create-modal').style.display = 'none';
+      }
+    });
 
     // ── Debounce search input ─────────────────────────────────────────────────
     let searchTimer = null;
@@ -91,7 +144,6 @@
       errorEl.style.display = 'none';
       errorEl.textContent   = '';
 
-      // Show skeleton while fetching
       document.getElementById('events-grid').innerHTML = `
         <div class="skeleton-card">
           <div class="skeleton skeleton-line w-40"></div>
@@ -135,13 +187,12 @@
             </p>
             ${hasFilter
               ? '<button class="btn-secondary" onclick="clearFilters()">Clear filters</button>'
-              : '<a href="create-event.html" class="btn-primary btn-inline">+ Create Event</a>'}
+              : ''}
           </div>`;
         return;
       }
 
       grid.innerHTML = events.map(e => {
-        // Parse YYYY-MM-DD as local midnight to avoid UTC timezone rollback
         let dateStr = '';
         if (e.date) {
           if (typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date)) {
@@ -171,7 +222,7 @@
     }
 
     function clearFilters() {
-      document.getElementById('search-input').value  = '';
+      document.getElementById('search-input').value    = '';
       document.getElementById('category-filter').value = '';
       loadEvents();
     }

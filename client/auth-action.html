@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Verification – Campus Event Board</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .verify-card {
+      max-width: 440px;
+      margin: 80px auto;
+      padding: 40px 32px;
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      text-align: center;
+    }
+    .verify-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .verify-card h1 { margin-bottom: 12px; }
+    .verify-card p {
+      color: var(--gray-600);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+    .verify-card .btn-primary {
+      display: inline-block;
+      padding: 12px 28px;
+      font-size: 1rem;
+      border-radius: var(--radius-sm);
+    }
+    .spinner-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--gray-600);
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <h1>Campus Event Board</h1>
+  </nav>
+
+  <div id="verify-card" class="verify-card">
+    <div class="spinner-wrapper">
+      <div class="spinner"></div>
+      <p style="margin:0;">Verifying your email…</p>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs only — NO auth.js loaded here.
+       auth.js calls requireAuth() which redirects unauthenticated users.
+       A brand-new user clicking their verification link is not yet logged in,
+       so loading auth.js would bounce them away before applyActionCode() runs. -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+  <script>
+    // ── Initialize Firebase directly ──────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey:            "AIzaSyBoQVkpLfgLSdH9NyF3zvcc05rsS97UAI4",
+      authDomain:        "campus-event-board-13a10.firebaseapp.com",
+      projectId:         "campus-event-board-13a10",
+      storageBucket:     "campus-event-board-13a10.firebasestorage.app",
+      messagingSenderId: "570338782997",
+      appId:             "1:570338782997:web:736360e87ee00ca118031c"   // ← copy from client/auth.js
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
+    // ── Read action parameters from the URL ──────────────────────────────────
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode      = urlParams.get('mode');
+    const oobCode   = urlParams.get('oobCode');
+    const card      = document.getElementById('verify-card');
+
+    function showSuccess() {
+      card.innerHTML = `
+        <span class="verify-icon">✅</span>
+        <h1>Email Verified!</h1>
+        <p>
+          Your email address has been confirmed. You're all set —
+          log in to start exploring and RSVPing to events on campus.
+        </p>
+        <a href="login.html" class="btn-primary">Go to Login</a>
+      `;
+    }
+
+    function showError(message) {
+      card.innerHTML = `
+        <span class="verify-icon">❌</span>
+        <h1>Verification Failed</h1>
+        <p>${message || 'The verification link may have expired or already been used.'}</p>
+        <p style="margin-bottom:0;">
+          Try <a href="login.html">logging in</a> — if your email is already verified
+          you can proceed normally. Otherwise, log in and request a new verification email.
+        </p>
+      `;
+    }
+
+    // ── Handle the verifyEmail action ────────────────────────────────────────
+    if (mode === 'verifyEmail' && oobCode) {
+      firebase.auth().applyActionCode(oobCode)
+        .then(async () => {
+          showSuccess();
+
+          // If the user is already signed in on this browser,
+          // fire the welcome email now. Otherwise login.html handles it.
+          const user = firebase.auth().currentUser;
+          if (user) {
+            try {
+              // Force-refresh so the server sees emailVerified = true
+              const token = await user.getIdToken(true);
+              const base  = (window.APP_CONFIG && window.APP_CONFIG.apiBaseUrl)
+                              ? window.APP_CONFIG.apiBaseUrl
+                              : 'http://localhost:3000/api';
+              fetch(`${base}/users/send-welcome`, {
+                method:  'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+              }).catch(() => {});
+            } catch (_) {}
+          }
+        })
+        .catch((err) => {
+          console.error('applyActionCode error:', err);
+          if (err.code === 'auth/invalid-action-code' ||
+              err.code === 'auth/expired-action-code') {
+            showError('This verification link has expired or was already used. Please log in and request a new one.');
+          } else {
+            showError(null);
+          }
+        });
+    } else if (mode === 'resetPassword' && oobCode) {
+      // Hand password-reset links back to login for Firebase's default flow
+      window.location.href = 'login.html' + window.location.search;
+    } else {
+      showError('Invalid or missing verification parameters.');
+    }
+  </script>
+
+</body>
+</html>

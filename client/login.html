@@ -36,5 +36,32 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <script src="auth.js"></script>
+
+  <!--
+    After a successful login, fire the welcome email if the user's email is now
+    verified and the welcome email hasn't been sent yet.
+    This is idempotent — the server checks the welcomeEmailSent flag and only
+    sends once, so calling it on every login is safe.
+  -->
+  <script>
+    firebase.auth().onAuthStateChanged(async (user) => {
+      if (!user || !user.emailVerified) return;
+
+      try {
+        const token = await user.getIdToken();
+        const base  = (window.APP_CONFIG && window.APP_CONFIG.apiBaseUrl)
+                        ? window.APP_CONFIG.apiBaseUrl
+                        : 'http://localhost:3000/api';
+
+        // Fire-and-forget — don't await, don't block login redirect
+        fetch(`${base}/users/send-welcome`, {
+          method:  'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).catch(() => { /* silent — this is a best-effort call */ });
+      } catch (e) {
+        // Never block login flow
+      }
+    });
+  </script>
 </body>
 </html>
