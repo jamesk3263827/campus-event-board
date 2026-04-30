@@ -150,8 +150,14 @@ const api = {
   removeAttendee: (eventId, userId) => apiFetch(`/events/${eventId}/rsvp/${userId}`, { method: 'DELETE' }),
 
   // Account deletion — marks user as pending deletion; actual deletion happens after 30 days
-  deleteAccount: () => apiFetch('/users/request-deletion', { method: 'POST' }),
+  deleteAccount:  () => apiFetch('/users/request-deletion', { method: 'POST' }),
   cancelDeletion: () => apiFetch('/users/cancel-deletion',  { method: 'POST' }),
+
+  // Contact organizer — sends message server-side; organizer's email never exposed to browser
+  contactOrganizer: (eventId, message) => apiFetch(`/events/${eventId}/contact-organizer`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  }),
 };
 
 // ── Global offline / online detection ────────────────────────────────────────

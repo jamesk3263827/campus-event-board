@@ -427,5 +427,70 @@ router.get('/:id/attendees', verifyToken, async (req, res) => {
   }
 });
 
-module.exports = router;
 
+// POST /api/events/:id/contact-organizer  (auth required)
+// Sends a message to the event organizer without exposing their email to the sender.
+router.post('/:id/contact-organizer', verifyToken, async (req, res) => {
+  const { message } = req.body;
+  if (!message || !message.trim()) {
+    return res.status(400).json({ error: 'Message cannot be empty.' });
+  }
+
+  try {
+    const admin = require('firebase-admin');
+    const firestoreDb = admin.firestore();
+
+    // 1. Load the event to get the organizer's UID
+    const eventSnap = await firestoreDb.collection('events').doc(req.params.id).get();
+    if (!eventSnap.exists) return res.status(404).json({ error: 'Event not found.' });
+    const event = eventSnap.data();
+
+    // 2. Block the organizer from messaging themselves
+    if (event.createdBy === req.user.uid) {
+      return res.status(403).json({ error: 'You cannot contact yourself as the organizer.' });
+    }
+
+    // 3. Look up organizer's email server-side — never sent to the browser
+    const organizerSnap = await firestoreDb.collection('users').doc(event.createdBy).get();
+    if (!organizerSnap.exists) return res.status(404).json({ error: 'Organizer not found.' });
+    const organizerEmail = organizerSnap.data().email;
+
+    // 4. Sender info from their verified auth token
+    const senderName  = req.user.name  || req.user.email;
+    const senderEmail = req.user.email;
+
+    // 5. Build email HTML
+    const html = `
+      <p>Hi ${escapeHtml(event.creatorName || 'Organizer')},</p>
+      <p><strong>${escapeHtml(senderName)}</strong> sent you a message about your event
+         <strong>${escapeHtml(event.title)}</strong>:</p>
+      <blockquote style="border-left:4px solid #ccc;padding-left:12px;color:#444;margin:16px 0;">
+        ${escapeHtml(message.trim()).replace(/\n/g, '<br>')}
+      </blockquote>
+      <p>You can reply directly to this email to respond to them.</p>
+    `;
+
+    // 6. Send — replyTo set so the organizer's reply goes straight back to the sender
+    await sendEmail(
+      organizerEmail,
+      `Someone has a question about your event: ${event.title}`,
+      html,
+      { replyTo: senderEmail }
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('contact-organizer error:', err);
+    res.status(500).json({ error: 'Failed to send message. Please try again.' });
+  }
+});
+
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+module.exports = router;

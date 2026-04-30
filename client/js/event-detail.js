@@ -45,6 +45,16 @@ const deleteEventBtn    = document.getElementById('delete-event-btn');
 const editEventBtn      = document.getElementById('edit-event-btn');
 const adminActions      = document.getElementById('event-admin-actions');
 
+// Contact organizer
+const contactOrgSection  = document.getElementById('contact-organizer-section');
+const contactOrgBtn      = document.getElementById('contact-organizer-btn');
+const contactSuccessMsg  = document.getElementById('contact-success-msg');
+const contactModal       = document.getElementById('contact-modal');
+const contactMessageEl   = document.getElementById('contact-message');
+const contactErrorEl     = document.getElementById('contact-error');
+const sendContactBtn     = document.getElementById('send-contact-btn');
+const dismissContactBtn  = document.getElementById('dismiss-contact-btn');
+
 // ─── State ───────────────────────────────────────────────────────────────────
 let eventId             = null;
 let currentUser         = null;
@@ -104,6 +114,7 @@ function startListeners() {
       renderEventContent(eventDoc);
       renderButton();
       renderAdminActions(eventDoc);
+      renderContactOrganizer(eventDoc);
 
       // Load comments only once, guaranteed after eventDoc is set
       if (!commentsLoaded) {
@@ -240,6 +251,77 @@ if (confirmDeleteBtn) {
       showError(err.message || 'Could not delete event. Please try again.');
       confirmDeleteBtn.disabled    = false;
       confirmDeleteBtn.textContent = 'Delete';
+    }
+  };
+}
+
+// ─── Contact Organizer — shown to logged-in non-organizers ───────────────────
+function renderContactOrganizer(event) {
+  if (!contactOrgSection) return;
+  // Show only to logged-in users who are NOT the organizer
+  if (currentUser && event.createdBy !== currentUser.uid) {
+    contactOrgSection.style.display = 'block';
+  } else {
+    contactOrgSection.style.display = 'none';
+  }
+}
+
+// Open modal
+if (contactOrgBtn) {
+  contactOrgBtn.onclick = () => {
+    if (contactMessageEl) contactMessageEl.value = '';
+    if (contactErrorEl)   contactErrorEl.style.display = 'none';
+    if (contactModal)     contactModal.style.display = 'flex';
+  };
+}
+
+// Dismiss modal
+if (dismissContactBtn) {
+  dismissContactBtn.onclick = () => {
+    if (contactModal) contactModal.style.display = 'none';
+  };
+}
+
+// Click-outside to close
+if (contactModal) {
+  contactModal.addEventListener('click', (e) => {
+    if (e.target === contactModal) contactModal.style.display = 'none';
+  });
+}
+
+// Send message
+if (sendContactBtn) {
+  sendContactBtn.onclick = async () => {
+    const message = contactMessageEl?.value.trim();
+    if (contactErrorEl) contactErrorEl.style.display = 'none';
+
+    if (!message) {
+      if (contactErrorEl) {
+        contactErrorEl.textContent   = 'Please enter a message.';
+        contactErrorEl.style.display = 'block';
+      }
+      return;
+    }
+
+    sendContactBtn.disabled    = true;
+    sendContactBtn.textContent = 'Sending…';
+
+    try {
+      await api.contactOrganizer(eventId, message);
+      if (contactModal) contactModal.style.display = 'none';
+      if (contactSuccessMsg) {
+        contactSuccessMsg.textContent   = '✅ Your message was sent to the organizer.';
+        contactSuccessMsg.style.display = 'block';
+        setTimeout(() => { contactSuccessMsg.style.display = 'none'; }, 5000);
+      }
+    } catch (err) {
+      if (contactErrorEl) {
+        contactErrorEl.textContent   = err.message || 'Failed to send. Please try again.';
+        contactErrorEl.style.display = 'block';
+      }
+    } finally {
+      sendContactBtn.disabled    = false;
+      sendContactBtn.textContent = 'Send Message';
     }
   };
 }
@@ -385,7 +467,8 @@ cancelModal.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     cancelModal.style.display = 'none';
-    if (deleteModal) deleteModal.style.display = 'none';
+    if (deleteModal)  deleteModal.style.display  = 'none';
+    if (contactModal) contactModal.style.display = 'none';
     const guestRsvpModal = document.getElementById('guest-rsvp-modal');
     if (guestRsvpModal) guestRsvpModal.style.display = 'none';
   }
